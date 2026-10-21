@@ -1,0 +1,39 @@
+# NirnayX - AI-Powered Legal Intelligence Platform
+# Backend Dependencies
+
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+python-multipart==0.0.12
+
+# LLM & AI
+openai==1.51.0
+google-generativeai==0.8.3
+tiktoken==0.8.0
+
+# Embeddings & Vector Store
+chromadb==0.5.12
+sentence-transformers==3.1.1
+
+# Document Processing
+PyPDF2==3.0.1
+pdfplumber==0.11.4
+python-docx==1.1.2
+
+# OCR (optional - requires Tesseract installed)
+# pytesseract==0.3.13
+# Pillow==10.4.0
+
+# NLP & Text Processing
+spacy==3.7.6
+nltk==3.9.1
+
+# Data & Utilities
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+aiofiles==24.1.0
+uuid6==2024.7.10
+
+# CORS
+starlette==0.39.2

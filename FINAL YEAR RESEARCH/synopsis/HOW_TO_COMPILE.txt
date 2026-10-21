@@ -1,0 +1,23 @@
+﻿# How to Compile nirnay_x_synopsis.tex
+
+## Option 1 - Overleaf (Recommended, No Installation Required)
+
+1. Go to https://www.overleaf.com and sign in.
+2. Click New Project then Upload Project.
+3. Upload nirnay_x_synopsis.tex
+4. Overleaf compiles automatically. Click Recompile if needed.
+5. Download the PDF using the Download PDF button.
+
+## Option 2 - Local Compilation with MiKTeX (Windows)
+
+1. Download and install MiKTeX from https://miktex.org/download
+2. During installation, set Install missing packages on-the-fly to Yes.
+3. Open PowerShell and run:
+
+   cd "C:\Users\rajat\Desktop\FINAL YEAR RESEARCH\synopsis"
+   pdflatex nirnay_x_synopsis.tex
+   pdflatex nirnay_x_synopsis.tex
+
+   (Run twice for correct TOC and references.)
+
+4. Output: nirnay_x_synopsis.pdf in the same folder.

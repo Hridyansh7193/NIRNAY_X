@@ -1,0 +1,387 @@
+=== SLIDE/PAGE 1 ===
+NIRNAY-X
+ AI-Powered Legal Intelligence Platform
+Project SubmissionB.Tech Computer Science & Engineering
+Ajay Kumar Garg Engineering College, Ghaziabad
+Dr. A.P.J. Abdul Kalam Technical University, Lucknow
+Supervisor: Ms. Bhumica
+Assistant Professor, Department of CSE
+Ragini Goel
+Rajat Pandey
+Raghav Mittal
+Team Members
+01
+Hridyansh Bhadauria
+Decision-support and information-assistance system — not a replacement for lawyers, judges, or professional legal advice.
+04
+03
+02
+
+=== SLIDE/PAGE 2 ===
+Introduction & Background
+The Indian legal ecosystem processes millions of documents annually — contracts, FIRs, judgments, petitions, and court notices. Citizens and
+professionals alike face compounding challenges in navigating this volume with limited accessible, intelligent tooling.
+An immense volume of highly specialized legal documents with
+complex terminology creates significant barriers to comprehension
+for non-specialists and professionals alike.
+Recent advances in Natural Language Processing (NLP), Large Language
+Models (LLMs), and Retrieval-Augmented Generation (RAG) have created
+a genuine opportunity to build reliable, context-aware legal assistance
+tools.
+Conventional keyword-based search systems fail to capture semantic
+relationships between legal concepts, producing incomplete or
+misleading retrieval results.
+Citizens struggle to understand legal documents; legal professionals
+spend disproportionate time on manual research rather than 
+strategic advocacy and client service.
+General-purpose Large Language Models generate plausible but
+unsupported information without grounding in reliable external legal
+sources — a critical liability in legal contexts.
+Integrate AI-driven semantic search, document processing, and RAG into
+a unified legal intelligence platform that is grounded, reliable, and
+accessible to both citizens and professionals.
+The AI Opportunity
+Search Limitation
+Legal Domain Challenge
+LLM Risk
+Access Problem
+Solution Direction
+
+=== SLIDE/PAGE 3 ===
+Problem Statement
+Core ChallengeUsers possess legal documents — contracts, FIRs, court notices, 
+petitions, judgments — but consistently struggle across four critical 
+dimensions:
+VerificationVerifying the reliability of AI-generated or retrieved legal 
+information before acting on it
+OrganizationOrganizing and searching case information effectively across 
+multiple documents and proceedings
+ComprehensionUnderstanding important information and domain-specific legal 
+terminology embedded in documents
+Provision IdentificationIdentifying relevant legal provisions, applicable statutes, and 
+established judicial precedents
+Semantic BlindnessKeyword search operates on 
+surface-level term matching 
+with no semantic 
+understanding of legal context 
+or conceptual relationships.
+Context DependencyLegal information inherently 
+requires reliable external 
+context and verification — a 
+need that standalone LLMs 
+cannot fulfill without RAG 
+grounding.
+Technical Gaps in Existing Systems
+Hallucination RiskGeneral-purpose LLMs 
+produce coherent but 
+unsupported outputs. In legal 
+contexts, this is not merely 
+inaccurate — it can be actively 
+harmful.
+Platform FragmentationNo integrated platform 
+currently combines document 
+analysis, intelligent retrieval, 
+and case workflow support in 
+a single unified system.
+
+=== SLIDE/PAGE 4 ===
+Proposed Solution & Research Gaps
+Nirnay-X addresses both the user-facing access problem and the technical limitations of existing systems by integrating established AI technologies into 
+a single, coherent legal intelligence platform.
+RAG Systems
+Approach
+Traditional Legal
+Databases
+Keyword Search
+Systems
+ML/NLP Systems
+LLM-Based Systems
+Classification,
+extraction,
+summarization
+Conversational
+interaction
+Exact-term retrieval
+Retrieval-supported
+generation
+Main Capability
+Access to legal sources
+Risk of
+unsupported
+outputs
+Dependent on
+retrieval quality
+Key Limitation
+Manual search &
+interpretation
+No semantic
+understanding
+Often task-specific
+only
+Document analysis +
+semantic retrieval + RAG +
+workflow in one system
+Identified Gap: Existing solutions address individual
+legal tasks. No platform integrates all dimensions —
+comprehension, retrieval, workflow, and accessibility —
+into one system.
+Combines information retrieval with case-management and
+deadline tracking
+The novelty lies not in new algorithms, but in the purposeful
+integration of established technologies into a domain-specific
+unified platform:
+Designed for both legal
+professionals and common
+citizens simultaneously
+Literature Review: Existing Approaches
+Unified Pipeline
+Nirnay-X Innovation
+Workflow Integration
+Dual Audience
+
+=== SLIDE/PAGE 5 ===
+Project Objectives
+Nine clearly defined technical objectives constitute the full scope of Nirnay-X, spanning the complete pipeline from raw document ingestion to
+conversational response delivery.
+Retrieve applicable statutes and relevant
+judicial precedents based on case context
+Process legal documents in PDF format with text extraction and
+preprocessing pipelines
+Perform retrieval based on contextual similarity rather than exact
+keyword matching
+Produce concise, accurate summaries of lengthy legal documents for
+rapid comprehension
+Support structured case organization,
+hearing schedules, and timeline tracking
+Generate context-aware responses using retrieved information
+supplied as grounding context to LLMs
+Generate and store vector embeddings representing document
+semantics in a vector database
+Explain complex legal terminology and concepts in plain, accessible
+language for non-specialists
+Enable natural-language interaction
+throughout the platform for all user types
+3
+5
+1
+6
+4
+2
+Legal Retrieval
+Summarization
+Semantic Search
+Document Processing
+Case Management
+RAG Pipeline
+Legal Simplification
+Vector Embeddings
+Conversational Interface
+
+=== SLIDE/PAGE 6 ===
+System Architecture
+Nirnay-X operates as a modular end-to-end pipeline, transforming raw legal PDFs into grounded, context-aware responses — with supporting modules for
+case workflow management.
+Each stage is modular — enabling independent component upgrades (e.g.,
+embedding model, LLM, vector store) without full pipeline reconstruction.
+Visual organization of chronological case events, procedural
+milestones, and filing deadlines across active matters.
+Semantic similarity search across case documents to surface
+related precedents and analogous fact patterns automatically.
+Structured calendar integration for scheduling hearings, tracking
+court dates, and issuing deadline reminders.
+Architecture separates ingestion, retrieval, and generation into
+distinct layers — ensuring traceability of sources in every
+generated response.
+Core RAG Pipeline Supporting Workflow Modules
+Calendar & Hearing Management
+Case Timeline & Deadline Tracking
+Case Analysis & Related Case Retrieval
+Upload OCR Chunking Embeddings Vector DB
+
+=== SLIDE/PAGE 7 ===
+RAG Workflow: Step-by-Step
+The Retrieval-Augmented Generation pipeline is the technical core of Nirnay-X. Each of the eleven sequential steps is designed to ensure that every LLM
+response is grounded in retrieved, verifiable legal content — eliminating unsupported generation.
+User uploads a PDF — contract, judgment, FIR, notice, or petition
+The user's natural-language question is embedded using the same model
+OCR and text extraction modules process the document for downstream use
+Text is divided into meaningful, legally coherent segments for granular retrieval
+Embeddings are indexed alongside metadata for efficient similarity-based lookup
+The most semantically relevant legal passages are selected as retrieval candidates
+Response and source information are presented together, enabling user verification
+Each chunk is converted into a dense vector representation capturing semantic meaning
+Query vector is compared against stored embeddings to find contextually similar chunks
+LLM produces a context-aware, grounded answer based exclusively on retrieved information
+Retrieved chunks are supplied as grounding context — constraining the LLM to sourced content
+6
+4
+4
+2
+2
+3
+5
+3
+5
+1
+1
+Extract Text
+Display Results
+Generate Response
+Chunk Documents
+Convert User Query
+Generate Embeddings
+Retrieve Top-K Chunks
+Provide Context to LLM
+Store in Vector Database
+Upload Legal Document
+Semantic Similarity Search
+
+=== SLIDE/PAGE 8 ===
+Key Features & Modules
+Eleven functional modules collectively deliver the full Nirnay-X capability set — spanning document intelligence, legal knowledge retrieval, and case
+workflow management.
+Intelligent examination of
+documents and case facts
+Context-aware question answering grounded in retrieved
+document content — minimizing unsupported generation.
+Structured management of
+cases and associated
+documents
+PDF parsing, text extraction via OCR, and preprocessing pipelines
+to prepare legal documents for semantic indexing.
+Complex legal terminology and statutory provisions translated into
+accessible, plain-language explanations.
+Calendar integration with
+reminders for court dates
+Vector-based retrieval surfaces relevant legal content based on
+conceptual similarity, not keyword matching.
+Natural-language interaction
+across all platform functions
+Condensed, accurate summaries of lengthy legal documents for
+rapid situational understanding.
+Locate applicable statutes and relevant judicial precedents based
+on the specific context of a user's case.
+Case Analysis
+RAG-Based Legal Assistant
+Legal Document Processing
+Simplified Legal Explanations
+Case Organization Hearing & Deadline
+Management
+Semantic Search
+Document Summarization
+Legal Provision & Precedent Retrieval
+Conversational Interface
+
+=== SLIDE/PAGE 9 ===
+Users & Stakeholders
+Nirnay-X is designed to serve three distinct user groups — each with different needs, technical backgrounds, and expectations from an AI-powered legal
+intelligence platform.
+Understand legal documents and
+domain-specific terminology without
+legal training
+Find potentially relevant legal provisions 
+applicable to their situation
+Receive simplified explanations of 
+complex legal concepts and procedures
+Identify informed next steps — without 
+replacing professional legal advice
+Analyze case documents efficiently with
+AI-assisted comprehension
+Conduct legal research and retrieve 
+relevant judicial precedents at speed
+Organize cases and track hearings, 
+deadlines, and procedural timelines
+Reduce repetitive information-
+management work to focus on strategy
+Devote more time to client advocacy and 
+high-value legal reasoning
+Responsibility Disclaimer: Nirnay-X provides information and decision-support only. It does not constitute legal advice. All consequential legal
+decisions must involve qualified legal professionals.
+Legal institutions and information
+providers seeking to digitize knowledge
+bases
+Technology developers and platform 
+administrators maintaining the system
+Academic and research communities 
+studying AI applications in law
+Common Citizens Legal Professionals Other Stakeholders
+
+=== SLIDE/PAGE 10 ===
+Evaluation Framework
+Nirnay-X will be assessed using a multi-dimensional evaluation framework appropriate to the system's compound nature — spanning retrieval quality,
+generation quality, and functional usability. No benchmark results are reported at this stage of the project.
+Recall@K
+Metric
+Precision@K
+Mean Reciprocal Rank
+(MRR)
+Normalized Discounted
+Cumulative Gain (NDCG)
+What It Measures
+Fraction of top-K retrieved chunks that
+are relevant to the query
+Fraction of all relevant passages
+successfully retrieved in top-K
+Average rank position of the first
+correct retrieval result
+Ranked retrieval quality weighting
+highly relevant results at top positions
+End-to-end pipeline correctness, interface usability testing, case
+management workflow accuracy, and qualitative feedback from
+representative user groups across citizen and professional categories.
+Metric
+Faithfulness
+ROUGE / BLEU
+Answer Relevance
+Context Utilization
+What It Measures
+Whether generated responses are
+grounded in retrieved source content
+Degree to which the response
+addresses the user's actual question
+How effectively the LLM incorporates
+retrieved chunks into the response
+Lexical overlap between generated
+summaries and reference summaries
+SDG 16 (Peace, Justice & Strong Institutions) — Primary. Expanding
+access to legal information.
+SDG 9 (Industry, Innovation & Infrastructure) — Secondary. AI-driven 
+platform innovation.
+SDG 3 (Good Health & Well-Being) — Indirect only; reduced stress from 
+legal uncertainty.
+Retrieval Quality Metrics
+Functional & Usability Evaluation SDG Alignment
+Generation Quality Metrics
+
+=== SLIDE/PAGE 11 ===
+Conclusion & Future Scope
+Nirnay-X represents a purposeful integration of established AI, NLP, and RAG technologies applied to one of the most underserved domains in digital
+transformation: legal access and intelligence.
+Designed simultaneously for common citizens seeking
+comprehension and legal professionals seeking efficiency
+Explicit decision-support framing with source attribution —
+grounded generation over hallucination risk
+First integrated system combining legal document processing,
+semantic retrieval, RAG-based QA, and case workflow
+management
+Thank you — We welcome questions from the evaluation committee.
+Hridyansh Bhadauria · Raghav Mittal · Ragini Goel · Rajat Pandey
+Supervisor: Ms. Bhumica, Dept. of CSE, AKGEC Ghaziabad
+Native mobile interface to reach citizens in low-connectivity
+environments
+"Nirnay-X does not replace legal professionals — it amplifies their effectiveness and democratizes access to legal information for every citizen."
+Support for scanned handwritten documents and multi-format
+legal records
+Connect to real-time case law databases and legislative updates
+Extend platform to Hindi and regional Indian languages for broader
+accessibility
+Dual Accessibility
+Summary of Contributions
+Unified Platform
+Responsible AI Design
+Mobile Application
+Future Scope
+Multilingual Support
+Live Legal Data Integration
+Expanded Document Types
+

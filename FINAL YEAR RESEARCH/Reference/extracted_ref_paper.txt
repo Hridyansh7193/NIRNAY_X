@@ -1,0 +1,749 @@
+TOTAL PAGES: 7
+
+=== PAGE 1 ===
+FedXAI: A Privacy-Preserving Explainable
+Federated Multimodal Learning Framework
+for Alzheimer’s Disease Diagnosis
+Pranjal Shukla, Sahil Kumar, Sneha Gupta, and Rishabh Dwivedi,
+for the Alzheimer’s Disease Neuroimaging Initiative*
+Department of Computer Science and Engineering
+Ajay Kumar Garg Engineering College
+(Affiliated to Dr. A.P.J. Abdul Kalam Technical University)
+Ghaziabad, Uttar Pradesh, India
+pranjal23164025@akgec.ac.in, sahil23154057@akgec.ac.in,
+sneha23154062@akgec.ac.in, rishabh23154108@akgec.ac.in
+Vivek Agarwal
+Department of Computer Science and Engineering
+Ajay Kumar Garg Engineering College
+Ghaziabad, Uttar Pradesh, India
+Supervisor
+Abstract—Clinicians rarely diagnose Alzheimer’s disease (AD)
+from a single source. They read a structural brain MRI alongside
+cognitive test scores, demographic details, and clinical biomark-
+ers. Most deep learning models for AD don’t work this way. They
+use only one of these inputs, or they assume every patient’s
+data can be gathered in one place, which hospitals are often
+not allowed to do. They also say little about why they made a
+given prediction. We present FEDXAI, a federated multimodal
+framework for AD diagnosis that keeps patient data on site and
+explains its predictions. A 3D Convolutional Neural Network (3D
+CNN) encodes the MRI volume, a multilayer perceptron (MLP)
+encodes the clinical variables, and intermediate fusion combines
+the two feature vectors. Each institution trains on its own data, so
+raw scans and records never leave the premises. Only model up-
+dates are shared, clipped and perturbed with Gaussian noise once
+per round, then combined with Federated Averaging (FedAvg).
+For each prediction, 3D Grad-CAM highlights the brain regions
+involved and SHAP ranks the clinical variables. We describe
+the framework’s design and a protocol for evaluating it on data
+from the Alzheimer’s Disease Neuroimaging Initiative (ADNI)
+under centralized, IID, and non-IID training. The software is
+implemented and has run end to end on ADNI clinical data with
+synthetic placeholder images. We haven’t used real MRI scans
+yet, so we report no accuracy results.
+Index Terms—Federated learning, explainable AI, multimodal
+deep learning, 3D CNN, privacy, medical diagnosis, Grad-CAM,
+SHAP, non-IID data, FedAvg, Alzheimer’s disease.
+I. INTRODUCTION
+Deep learning already does well on many medical imaging
+tasks, and on some radiology and pathology problems its ac-
+curacy comes close to that of specialists. Getting these models
+into everyday clinical practice is harder. A doctor almost never
+decides from a scan alone. The scan is read together with the
+*Data used in preparation of this article were obtained from the Alzheimer’s
+Disease Neuroimaging Initiative (ADNI) database (adni.loni.usc.edu).
+As such, the investigators within the ADNI contributed to the de-
+sign and implementation of ADNI and/or provided data but did not
+participate in analysis or writing of this report. A complete list-
+ing of ADNI investigators can be found at: http://adni.loni.usc.edu/wp-
+content/uploads/how to apply/ADNI Acknowledgement List.pdf
+patient’s history, examination findings, cognitive test results,
+and risk factors such as age [1]. A model that sees only one
+of these sources misses useful context, and that can make it
+less sensitive and less robust [2].
+Two more problems make multimodal models hard to build
+across hospitals. The first is privacy. Laws such as HIPAA in
+the United States and GDPR in the European Union strictly
+limit how health records and medical images can be shared,
+and copying patient data into a central database carries legal
+and institutional risk [3]. So each hospital often ends up
+training on its own small cohort, and models trained that way
+tend to overfit and generalize poorly. The second is trust. A
+deep network doesn’t explain its output, and clinicians can’t
+reasonably act on a probability score when they have no way
+to check the reasoning behind it [4].
+Federated Learning (FL) sidesteps the data-sharing problem.
+Several institutions train one model together without moving
+their data [5]. Each site keeps its records locally and sends
+only model parameters (or gradients) to a coordinating server
+over an encrypted connection, which in our case is gRPC
+secured with TLS. In FEDXAI, the server combines these
+updates with Federated Averaging (FedAvg) [5], weighting
+each client’s parameters by the number of samples it holds.
+FedAvg means data no longer has to be centralized, but the
+differences between sites remain. Patient populations, clinical
+protocols, and scanners vary from one hospital to the next, so
+each client’s data is not independent and identically distributed
+(non-IID) [6].
+Explainable AI (XAI) methods can show what a trained
+model relies on. Grad-CAM [7] produces heatmaps over the
+input image, and SHAP [8] assigns an importance value to
+each input feature. But most earlier work treated FL and
+XAI separately, or applied XAI only to image-only models.
+Much less is known about whether the explanations from
+a multimodal model stay reliable when it’s trained across
+heterogeneous federated clients.
+
+=== PAGE 2 ===
+FEDXAIcombines intermediate multimodal fusion,
+FedAvg-based federated training, clipped and noise-perturbed
+updates, and explanations for both the imaging and the
+clinical inputs. We present its design for Alzheimer’s disease
+and a protocol for evaluating it on paired 3D MRI scans
+and clinical records, under centralized training and under
+controlled levels of data skew. The software is implemented,
+but it hasn’t been trained on real MRI scans yet, so we report
+no accuracy results. The main contributions of this work are:
+•A two-branch multimodal architecture. A 4-stage 3D
+CNN encodes the brain MRI (128-d), an MLP encodes
+the clinical markers (32-d), and the two outputs are fused
+into a160-d representation.
+•Federated training with privacy protections, built on
+PyTorch and Flower over gRPC. Each client’s update
+is clipped and perturbed with Gaussian noise once per
+round, then combined with FedAvg weighted by sample
+size.
+•Explanations for both modalities: a 3D Grad-CAM
+heatmap and a set of SHAP feature attributions for each
+prediction.
+•An evaluation protocol that sets out the planned compar-
+isons and measures for centralized training and for IID
+and Dirichlet non-IID clients, scored on held-out subjects
+only.
+Section II reviews related work and the research gap. Sec-
+tion III describes the architecture and method, and Section IV
+gives the dataset and settings. Section V covers the imple-
+mentation status and the evaluation protocol, and Section VI
+concludes.
+II. RELATEDWORK
+Our work draws on four lines of research.
+A. Deep learning for Alzheimer’s disease diagnosis
+CNNs are a common choice for classifying Alzheimer’s
+disease from structural MRI [9], [10]. Qiuet al.[9] combined
+MRI with routinely collected clinical data to separate normal
+cognition, mild cognitive impairment, and dementia, and used
+SHAP to tie the model’s decisions to brain regions. A model
+that sees only the image can’t use what’s in clinical notes and
+test scores [11], which is why FEDXAI pairs its 3D CNN with
+a clinical branch.
+B. Multimodal fusion for clinical diagnosis
+Fusion methods are usually grouped into early fusion of
+inputs, late fusion of predictions, and intermediate fusion
+of learned features [2], [11]. Models that combine imaging
+with electronic health record data have generally outperformed
+single-modality models [2], [11], since the two sources carry
+complementary information [1], [11]. But most are trained on
+data pooled at one site, which is hard to arrange under current
+privacy rules [1], [3].
+C. Federated learning and privacy protection
+FL lets institutions train a model without exchanging patient
+records [3], [10], [12]. In FedAvg [5], the server averages
+the client updates, weighted by dataset size. Applications
+include ADMarker [12], which detects digital biomarkers of
+Alzheimer’s disease from sensor data recorded in natural living
+environments, and FedVC-ADDiM [10], which diagnoses the
+disease from MRI scans held at different sites. There is also
+a benchmark of FL algorithms for medical image classifica-
+tion [13]. Shared parameters can still reveal information about
+the training data, so differential privacy is often added [3],
+[14]. Two problems remain. Non-IID client data slows conver-
+gence and can lower accuracy [6], [13], and federated medical
+studies say little about whether the aggregated model is still
+interpretable [13]. Our protocol therefore evaluates FedAvg
+under controlled Dirichlet label skew [15].
+D. Explainable AI
+Clinicians are more likely to adopt a model whose decisions
+they can inspect [4]. Grad-CAM [7] builds a heatmap from
+the gradients flowing into the last convolutional layer. For a
+3D layer, the result is a volume that can be overlaid on the
+scan. SHAP [8] uses Shapley values to attribute a prediction
+to tabular features. Jahanet al.[16] used SHAP to explain
+a federated multimodal AD model. But explanation quality
+can’t be taken for granted. Jinet al.[17] tested 16 heatmap
+methods on a multimodal medical imaging task, and none
+reliably reflected the model’s decision process.
+E. Research gap and our approach
+Four things are missing from the work above. Image-only
+3D CNNs ignore clinical information [9]. Fusion models
+usually assume centralized data [2], [11]. Federated studies
+concentrate on accuracy [6], [13]. And federated XAI studies
+have rarely paired a visual explanation with a tabular one for
+a single fused model [16], [17]. FEDXAI is built to address
+all four. It fuses a 3D CNN and an MLP (Sections III-C
+and III-D), trains the fused model with FedAvg and clipped,
+noise-perturbed updates (Section III-E), and explains each
+prediction for both modalities (Section III-F).
+III. PROPOSEDFEDXAIFRAMEWORK
+A. System architecture overview
+Fig. 1 shows the architecture of FEDXAI. It has two
+layers. Thelocal layerruns inside each hospital, and the
+federated layercoordinates training between hospitals. Only
+model parameters pass between them. MRI scans and clinical
+records never leave the hospital.
+Each hospital holds a structural 3D MRI volume and
+a clinical record for every subject. A four-stage 3D CNN
+encodes the preprocessed volume into a 128-d vector, and an
+MLP encodes the clinical record into a 32-d vector. The two
+are concatenated, and a small classifier maps the 160-d result
+to the class probabilitiesˆy. 3D Grad-CAM and SHAP then
+explain the prediction. In training, each hospital updates its
+own copy of the model, clips the update, and adds Gaussian
+
+=== PAGE 3 ===
+Hospital clientk(local layer: raw MRI and clinical data remain on-site)
+3D MRI scan
+ximg
+Preprocessing
+skull stripping,
+intensity norm.,
+resampling to32 3
+3D CNN encoder
+(4 stages)
+zimg ∈R 128
+Clinical record
+demographics,
+cognitive scores,
+hippocampal
+vol., APOEε4
+MLP encoder
+(d→64→32)
+zclin ∈R 32
+Intermediate fusion
+z= [z img∥zclin]
+z∈R 160
+Classifierg(·)
+FC160→64→C
+softmax→ˆy
+Output
+predicted diagnosis
+ˆywith explanations
+Dual-modality
+explanation
+3D Grad-CAM (MRI)
+KernelSHAP (clinical)
+Local training and
+update protection
+cross-entropy; update
+clipped toC dp,
+Gaussian noiseσ
+xclin∈R d
+ˆy, gradients
+lossℓ(θ)
+Coordinating server (Flower): weighted FedAvg
+θt+1 = ∑︁
+k∈St
+nk∑︁
+j∈St nj
+θk
+t+1
+Other clientsj̸=k
+(same local pipeline)
+localθ k
+t+1 via gRPC/TLS globalθ t+1 broadcast
+parameters only
+Fig. 1. Architecture of FEDXAI. Inside each hospital client (dashed box), a 3D CNN encodes the preprocessed MRI volume and an MLP encodes the clinical
+feature vector. The two are fused into a 160-d vector and classified, and 3D Grad-CAM and KernelSHAP explain the prediction. During training, each client
+sends its clipped, noise-perturbed update over gRPC/TLS (Flower) to the server. The server runs weighted FedAvg and sends back the new global model.
+Patient data stays at the client.
+noise at the end of the round. It then sends the result to the
+server through Flower over gRPC/TLS, and the server applies
+weighted FedAvg.
+B. Problem formulation
+We considerKhealthcare institutions, indexed byk∈
+{1,...,K}. Institutionkholds a local datasetD k =
+{(ximg
+i ,x clin
+i ,yi)}nk
+i=1, wherex img
+i ∈R 1×D×H×W is a 3D
+MRI volume,x clin
+i ∈R d is the matching clinical vector, and
+yi∈{1,...,C}is the diagnostic label. The total number of
+samples isn= ∑︁K
+k=1nk. EachD k stays on its own client
+server during both training and inference.
+C. Multimodal encoder architecture
+The imaging branchf img(·;θ img)is a 3D CNN with four
+stages. Every stage applies 3D convolution, batch normaliza-
+tion, a LeakyReLU activation (negative slope0.1), and 3D
+max pooling. A global average pooling layer then reduces the
+feature maps to a 128-dimensional vector:
+zimg =f img(ximg;θ img)∈R 128.(1)
+The clinical branchf clin(·;θ clin)is an MLP. It passes thed
+clinical features through hidden layers of size64and32with
+ReLU activations and dropout (p= 0.1), and outputs a 32-
+dimensional vector:
+zclin =f clin(xclin;θ clin)∈R 32.(2)
+D. Intermediate feature fusion
+We concatenate the two feature vectors into a 160-
+dimensional joint vectorz:
+z=
+[︁
+zimg∥z clin]︁
+∈R 160.(3)
+A fully connected classifierg(·;θ c)(160→64→C, Table I)
+then gives the probability of each of theCclasses:
+ˆy= softmax
+(︁
+g(z;θc)
+)︁
+.(4)
+Letθ={θ img,θ clin,θc}be all trainable parameters. The local
+model is trained with cross-entropy loss:
+ℓ(θ) =−
+C∑︂
+c=1
+yc log ˆyc.(5)
+Clientk’s local objective is the average of this loss over
+its dataset,F k(θ) = 1
+nk
+∑︁nk
+i=1ℓi(θ), whereℓ i is the loss on
+sampleiofD k.
+E. Update protection and FedAvg aggregation
+Model updates can leak information about the training data,
+so each client protects its update before sending it. Letθ t be
+the global model received at roundtandθ k
+loc the model of
+clientkafter local training. Clientk’s update is∆ k =θ k
+loc−θt.
+Once per round, the client clips this whole update so that its
+L2 norm is at mostC dp:
+¯∆k = ∆k/max
+(︃
+1,∥∆k∥2
+Cdp
+)︃
+.(6)
+
+=== PAGE 4 ===
+It then adds Gaussian noise with multiplierσand returns the
+protected model:
+θk
+t+1 =θ t + ¯∆k +ξ,ξ∼N
+(︁
+0, σ2C 2
+dp I
+)︁
+.(7)
+This differs from DP-SGD [14], which clips the gradient of
+every sample at every step. Clipping a client’s update bounds
+that client’s influence on the global model, not the influence of
+a single patient record. Also, withσ= 0.1the added noise is
+small, and we carry out no privacy accounting. We therefore
+make no formal differential privacy claim and state no(ϵ,δ)
+value. The mechanism is a practical safeguard and carries no
+certified privacy guarantee.
+The privacy of FEDXAI rests on three layers. Raw MRI
+scans and clinical records stay at the hospital. Model updates
+travel over TLS, which protects them from outside parties
+in transit. Clipping and noise limit what can be inferred
+about a patient from an update. We assume an honest-but-
+curious server that follows the protocol but may inspect what
+it receives. Secure aggregation is not used, so the server sees
+each client’s update separately, and clipping and noise are the
+only protection against it.
+The overall goal is to minimize the loss over the patients
+of all institutions:
+min
+θ
+F(θ) =
+K∑︂
+k=1
+nk
+n Fk(θ).(8)
+At roundt, the server sends the global weightsθ t to the
+clients. Each active client inS t⊆{1,...,K}trains locally
+and returnsθ k
+t+1. The server then averages these weights,
+weighting each client by its sample size, to getθ t+1:
+θt+1 =
+∑︂
+k∈St
+nk∑︁
+j∈Stnj
+θk
+t+1.(9)
+Algorithm 1 gives the complete training procedure, including
+the privacy steps.
+F . Multimodal explanation integration
+For the MRI input, 3D Grad-CAM computes a weightw c
+q
+for each channelqof the last convolutional feature mapsA q,
+whereZis the number of voxels in a map:
+wc
+q = 1
+Z
+∑︂
+i
+∑︂
+j
+∑︂
+l
+∂yc
+∂Aq
+ijl
+, L c
+cam = ReLU!
+(︂∑︂
+q
+wc
+qAq
+)︂
+.
+(10)
+The heatmap is upsampled to the input resolution and overlaid
+on the MRI volume. With a32 3 input and three pooling steps
+before the final convolution, eachA q has only4×4×4voxels.
+The heatmap therefore shows coarse brain regions and can’t
+resolve small structures such as the hippocampus.
+For the clinical input, KernelSHAP estimates the Shapley
+valueϕ i of featurei, its average contribution to the prediction
+over subsets of the feature setF:
+ϕi =
+∑︂
+S⊆F\i
+|S|!,(|F|−|S|−1)!
+|F|! ,
+[︁
+fx(S∪i)−f x(S)
+]︁
+.(11)
+Algorithm 1FEDXAI Privacy-Preserving FedAvg Protocol
+Require:Client set{1,...,K}, roundsR, local epochsE,
+learning rateη, clipping normC dp, noise multiplierσ
+Ensure:Final global model parametersθ R
+1:Server initializesθ 0
+2:fort= 0toR−1do
+3:Select active client subsetS t⊆{1,...,K}
+4:Broadcast global modelθ t to each clientk∈S t via
+gRPC/Flower
+5:foreach clientk∈S t in parallel do
+6:θ k
+t+1←CLIENTUPDATE(k,θ t,C dp,σ)
+7:end for
+8:θ t+1←∑︁
+k∈St
+nk∑︁
+j∈Stnj
+θk
+t+1{Weighted FedAvg}
+9:end for
+10:returnθ R
+11:functionCLIENTUPDATE(k,θ t,C dp,σ)
+12:θ←θ t
+13:forlocal epoch= 1toEdo
+14:for allmini-batches(x img,x clin,y)∈D k do
+15:z←[f img(ximg)∥f clin(xclin) ]
+16:ˆy←softmax(g(z))
+17:Compute gradientv←∇ θℓ(ˆy,y)
+18:θ←ADAMSTEP(θ,v,η)
+19:end for
+20:end for
+21:Update∆←θ−θ t
+22:Clip update ¯∆←∆/max(1,∥∆∥ 2/Cdp){Eq. (6)}
+23:returnθ t + ¯∆ +N(0,σ 2C 2
+dpI){Eq. (7)}
+G. Data heterogeneity partitioning
+To create non-IID clients we use a Dirichlet distribution
+Dir(α)with concentration parameterα[15]. For each class
+c, the share of that class assigned to each of theKclients is
+drawn as:
+(pc,1,...,p c,K)∼Dir(α·1 K).(12)
+Smaller values ofαgive stronger label skew, much like the
+gap between general hospitals and specialist clinics.
+IV. DATASET AND SETTINGS
+A. Dataset and preprocessing
+Data used in the preparation of this article were obtained
+from the Alzheimer’s Disease Neuroimaging Initiative (ADNI)
+database (adni.loni.usc.edu). The ADNI was launched in 2003
+as a public-private partnership, led by Principal Investiga-
+tor Michael W. Weiner, MD. The primary goal of ADNI
+has been to test whether serial magnetic resonance imaging
+(MRI), positron emission tomography (PET), other biological
+markers, and clinical and neuropsychological assessment can
+be combined to measure the progression of mild cognitive
+impairment (MCI) and early Alzheimer’s disease (AD).
+The clinical variables come from the ADNI study ta-
+bles [18]. They are demographics (age, sex, education), cog-
+nitive scores (MMSE, CDR-SB, ADAS-Cog13), hippocampal
+
+=== PAGE 5 ===
+TABLE I
+HYPERPARAMETERS ANDEXPERIMENTALSETTINGS
+Parameter Configuration
+Image Backbone 4-Stage 3D CNN, 128-d Embedding
+Clinical Net MLP (d→64→32), Dropout0.1, 32-d Embedding
+Feature Fusion Latent Concatenation (160-d)
+Classifier Head FC (160→64→C)
+Optimization Adam (η= 10 −3, Weight Decay10 −4)
+Local Training Local EpochsE= 1, Batch Size16
+Federation Bounds Communication RoundsR= 50, ClientsK= 5
+Update Protection Client update clipped once per round,C dp = 1.0,σ= 0.1
+Data Skew Bounds Uniform IID vs. DirichletDir(α),α∈{1.0,0.5,0.1}
+FL Framework PyTorch + gRPC / Flower
+Aggregator Federated Averaging (FedAvg, sample-size weighted)
+volume, and the number of APOEε4alleles, which gives
+d= 8clinical features. The cohort has3,700subjects across
+all five ADNI phases: ADNI-1 (819), ADNI-GO (129), ADNI-
+2 (1,056), ADNI-3 (959), and ADNI-4 (737), counted by
+the phase in which each subject enrolled. Each subject is
+labelled with the diagnosis at the baseline visit, which gives
+C= 3classes: cognitively normal (CN,1,577subjects), mild
+cognitive impairment (MCI,1,566), and Alzheimer’s disease
+dementia (AD,557). MMSE and CDR-SB also enter the ADNI
+diagnostic criteria, so the clinical branch has partial access to
+label information through these two scores.
+We have not yet obtained or processed the structural MRI
+scans for these subjects. For the evaluation, each subject’s
+baseline T1-weighted scan will be skull-stripped, intensity-
+normalized, and resampled to a32×32×32volume, and
+we will keep only subjects with both a scan and a complete
+clinical record. The data will be split by subject (70%training,
+15%validation,15%test), so no subject appears in more than
+one split.
+B. Implementation parameters
+The framework is implemented in PyTorch (v2.0) with
+Flower over gRPC [19], and the federated experiments will
+useK= 5simulated clients. Table I lists the hyperparameters.
+V. IMPLEMENTATION STATUS AND EVALUATION PROTOCOL
+A. Implementation status
+All components of Section III are implemented: the two
+encoders and the fusion classifier, FedAvg training over Flower
+with clipped and noise-perturbed client updates, and the Grad-
+CAM and SHAP explanation modules. The pipeline has run
+end to end on the real ADNI clinical variables, with synthetic
+volumes standing in for MRI scans. These runs confirm that
+the software executes, but we don’t report their accuracy for
+two reasons. First, each synthetic volume was random noise
+whose intensity depended on the diagnosis label, so the image
+revealed the label, making any result involving the imaging
+branch meaningless. Second, the federated runs were scored
+on subjects that had also been used for training. The protocol
+below fixes both problems.
+TABLE II
+SYSTEMHYPERPARAMETERS ANDEXECUTIONSETTINGS
+Parameter Configuration
+Image Backbone 3D ResNet-10 (MedicalNet, pretrained), 512-d
+Embedding
+Image Input80 3 V olume, Affine-Registered, Skull-Stripped,
+Brain Crop
+Image Tabular Branch MLP (d→64), Dropout 0.3 (Age, Sex, Region
+Features)
+Image Head FC (576→3), Dropout 0.5
+Image Optimization AdamW (η= 10 −4 Backbone /10 −3 Head,
+Weight Decay10−2)
+Image Training 30 Epochs, Batch Size 8, Label Smoothing 0.1,
+Centralized
+Clinical Net MLP (27→32→C), Dropout 0.1
+Clinical Optimization SGD (η= 0.05), Batch Size 16
+Local Training Local EpochsE= 1
+Federation Bounds RoundsR= 10(ADNI) / 20 (Heterogeneity),
+ClientsK= 3
+Differential PrivacyL 2 Clip NormC= 2.0, Noise Multiplierσ=
+1.8,δ= 10 −5
+Data Skew Bounds IID vs. Moderate / Strong / Quantity / Severe
+Non-IID
+FL Framework PyTorch + gRPC
+Aggregator FedAvg (Weighted); FedProx, SCAFFOLD,
+FedXAI-Adaptive Compared
+TABLE III
+PERFORMANCEACROSSMODALITIES(HELD-OUTTESTPATIENTS)
+Architecture Modality Bal. Acc. (%) Macro-F1 ROC-AUC
+Clinical Vector Only (MLP, FedAvg + DP)83.4 0.83 0.950
+3D MRI Only (Logistic Regression) 42.6 0.40 0.599
+3D MRI Only (Pretrained 3D ResNet-10) 45.6 0.42 0.653
+CN / MCI / AD staging; macro ROC-AUC one-vs-rest. Clinical: 3 synthetic sites (900 /
+600 / 300),ε≤3.21, 5 seeds. MRI: ADNI + OASIS, centralized, 215 test visits / 105
+patients.
+B. Planned comparisons
+We will make four comparisons on real ADNI scans.
+(1)Fusion:under centralized training, we compare the fused
+model with an MRI-only 3D CNN and a clinical-only MLP.
+(2)Federation:we train the fused model with FedAvg on
+IID clients and on Dirichlet splits withα∈{1.0,0.5,0.1},
+and compare the results with centralized training. (3)Update
+protection:we run each federated setting with and without
+clipping and noise. (4)Label leakage:we also train every
+model with a clinical branch, excluding MMSE and CDR-SB.
+C. Measures
+We will score all models only on the held-out test subjects,
+which no client sees during training. The classes are unbal-
+anced, so we will report accuracy, macro-averaged F1, one-
+vs-rest AUC, and per-class sensitivity, as mean and standard
+deviation over three random seeds. To compare convergence,
+we will record test accuracy at each communication round. For
+the explanations, we will compare the Grad-CAM maps with
+the brain regions known to be affected in AD, and compare
+the SHAP rankings of the clinical features across clients.
+
+=== PAGE 6 ===
+TABLE IV
+FEDERATEDDIAGNOSTICPERFORMANCEUNDERDATASKEW(FEDAVG
+AGGREGATION)
+Data Distribution ROC-AUC PR-AUC F1 Sens. Spec.
+Federated IID (600 / 600 / 600) 0.845 0.758 0.671 0.816 0.694
+Moderate Non-IID 0.835 0.746 0.672 0.806 0.692
+Strong Non-IID 0.812 0.711 0.676 0.771 0.699
+Quantity Skew (1000 / 500 / 200) 0.829 0.730 0.667 0.775 0.730
+Severe (Strong + Quantity) 0.826 0.667 0.594 0.776 0.692
+MCI→AD progression, synthetic cohort, no DP , 20 rounds, mean of 10 seeds, test
+patients.
+TABLE V
+EXPLANATIONCONSISTENCYACROSSINSTITUTIONALNODES(FEDAVG)
+Stability Metric Model Value
+SHAP Rank Correlation Between Sites
+(Spearmanρ)
+Clinical MLP, no DP 0.915
+SHAP Rank Correlation Between Sites
+(Spearmanρ)
+Clinical MLP, with DP 0.911
+SHAP Rank Correlation Between Runs
+(Spearmanρ)
+Clinical MLP, no DP 0.506
+SHAP Rank Correlation Between Runs
+(Spearmanρ)
+Clinical MLP, with DP 0.233
+3D Grad-CAM Region IoU (AD Re-
+gions, Top 10 %)
+3D ResNet-10 0.025
+Grad-CAM Top-10 % V oxels in AD Re-
+gions (Chance 0.015)
+3D ResNet-10 0.027
+Grad-CAM Map IoU Between Datasets 3D ResNet-10 0.415
+SHAP: clinical MLP , synthetic sites, 5 seeds. Grad-CAM: 3D ResNet-10 (centralized, no
+DP), layer4, 911 test scans; ADNI / OASIS-2 / OASIS-1.
+VI. CONCLUSION
+We presented the design of FEDXAI, a federated multi-
+modal framework for Alzheimer’s disease diagnosis that keeps
+patient records at the hospital and explains its predictions. A
+3D CNN and an MLP encoder are fused at the feature level
+and trained with FedAvg. Each client’s update is clipped and
+perturbed with Gaussian noise, and every prediction comes
+with a 3D Grad-CAM heatmap and SHAP attributions. The
+software is implemented, and we have defined a protocol for
+evaluating it.
+The work has real limitations. We have no accuracy results
+yet, because the framework hasn’t been trained on real MRI
+scans. We claim no formal privacy guarantee: clipping is
+applied to each client’s whole update, the noise level is low,
+and we do no privacy accounting. MMSE and CDR-SB are
+part of the ADNI diagnosis, so their contribution has to be
+measured by ablation. The32 3 input limits Grad-CAM to
+coarse regions. And the clients will be simulated by splitting
+a single dataset.
+Next we will run the evaluation on real ADNI scans.
+After that, we plan to add per-sample clipping with privacy
+accounting and secure aggregation, and to test on real multi-
+site data.
+ACKNOWLEDGMENT
+Data collection and sharing for the Alzheimer’s Disease
+Neuroimaging Initiative (ADNI) is funded by the National
+Institute on Aging (National Institutes of Health Grant U19
+AG024904). The grantee organization is the Northern Cal-
+ifornia Institute for Research and Education. In the past,
+ADNI has also received funding from the National Institute
+of Biomedical Imaging and Bioengineering, the Canadian
+Institutes of Health Research, and private sector contributions
+through the Foundation for the National Institutes of Health
+(FNIH) including generous contributions from the following:
+AbbVie, Alzheimer’s Association; Alzheimer’s Drug Discov-
+ery Foundation; Araclon Biotech; BioClinica, Inc.; Biogen;
+Bristol-Myers Squibb Company; CereSpir, Inc.; Cogstate; Ei-
+sai Inc.; Elan Pharmaceuticals, Inc.; Eli Lilly and Company;
+EuroImmun; F. Hoffmann-La Roche Ltd and its affiliated
+company Genentech, Inc.; Fujirebio; GE Healthcare; IXICO
+Ltd.; Janssen Alzheimer Immunotherapy Research & Devel-
+opment, LLC.; Johnson & Johnson Pharmaceutical Research
+& Development LLC.; Lumosity; Lundbeck; Merck & Co.,
+Inc.; Meso Scale Diagnostics, LLC.; NeuroRx Research; Neu-
+rotrack Technologies; Novartis Pharmaceuticals Corporation;
+Pfizer Inc.; Piramal Imaging; Servier; Takeda Pharmaceutical
+Company; and Transition Therapeutics.
+REFERENCES
+[1] J. N. Acosta, G. J. Falcone, P. Rajpurkar, and E. J. Topol, “Multimodal
+biomedical AI,”Nature Medicine, vol. 28, no. 9, pp. 1773–1784, 2022,
+doi: 10.1038/s41591-022-01981-2.
+[2] M. Adam, A. Albaseer, U. Baroudi, and M. Abdallah, “Survey of mul-
+timodal federated learning: Exploring data integration, challenges, and
+future directions,”IEEE Open Journal of the Communications Society,
+vol. 6, pp. 2510–2538, 2025, doi: 10.1109/OJCOMS.2025.3554537.
+[3] Q. Li, Z. Wen, Z. Wu, S. Hu, N. Wang, Y . Li, X. Liu, and B. He,
+“A survey on federated learning systems: Vision, hype and reality
+for data privacy and protection,”IEEE Transactions on Knowledge
+and Data Engineering, vol. 35, no. 4, pp. 3347–3366, 2023, doi:
+10.1109/TKDE.2021.3124599.
+[4] J. Amann, A. Blasimme, E. Vayena, D. Frey, and V . I. Madai, “Ex-
+plainability for artificial intelligence in healthcare: A multidisciplinary
+perspective,”BMC Medical Informatics and Decision Making, vol. 20,
+Art. no. 310, 2020, doi: 10.1186/s12911-020-01332-6.
+[5] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. Ag ¨uera y Ar-
+cas, “Communication-efficient learning of deep networks from decentral-
+ized data,” inProc. 20th Int. Conf. Artif. Intell. Statist. (AISTATS), PMLR
+vol. 54, 2017, pp. 1273–1282. [Online]. Available: https://proceedings.
+mlr.press/v54/mcmahan17a.html
+[6] T. Li, A. K. Sahu, M. Zaheer, M. Sanjabi, A. Talwalkar, and V . Smith,
+“Federated optimization in heterogeneous networks,” inProc. Mach.
+Learn. Syst. (MLSys), vol. 2, 2020, pp. 429–450. [Online]. Available:
+https://arxiv.org/abs/1812.06127
+[7] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and
+D. Batra, “Grad-CAM: Visual explanations from deep networks via
+gradient-based localization,” inProc. IEEE Int. Conf. Comput. Vis.
+(ICCV), 2017, pp. 618–626, doi: 10.1109/ICCV .2017.74.
+[8] S. M. Lundberg and S.-I. Lee, “A unified approach to interpreting model
+predictions,” inAdvances in Neural Information Processing Systems
+(NeurIPS), vol. 30, 2017. [Online]. Available: https://arxiv.org/abs/1705.
+07874
+[9] S. Qiuet al., “Multimodal deep learning for Alzheimer’s disease
+dementia assessment,”Nature Communications, vol. 13, Art. no. 3404,
+2022, doi: 10.1038/s41467-022-31037-5.
+[10] I. Shahzad, J. Ouyang, and S. U. R. Khan, “FedVC-ADDiM: A
+federated learning framework for diagnosis of Alzheimer disease using
+deep learning,”Multimedia Systems, vol. 32, Art. no. 161, 2026, doi:
+10.1007/s00530-026-02229-6.
+[11] S.-C. Huang, A. Pareek, S. Seyyedi, I. Banerjee, and M. P. Lungren,
+“Fusion of medical imaging and electronic health records using deep
+learning: A systematic review and implementation guidelines,”npj
+
+=== PAGE 7 ===
+Digital Medicine, vol. 3, Art. no. 136, 2020, doi: 10.1038/s41746-020-
+00341-z.
+[12] X. Ouyanget al., “ADMarker: A multi-modal federated learning system
+for monitoring digital biomarkers of Alzheimer’s disease,” inProc. 30th
+Annu. Int. Conf. Mobile Comput. Netw. (MobiCom), Washington, DC,
+USA, 2024, pp. 404–419, doi: 10.1145/3636534.3649370.
+[13] Z. Zhouet al., “Federated learning for medical image classification: A
+comprehensive benchmark,” arXiv:2504.05238, 2025. [Online]. Avail-
+able: https://arxiv.org/abs/2504.05238
+[14] M. Abadi, A. Chu, I. Goodfellow, H. B. McMahan, I. Mironov, K. Tal-
+war, and L. Zhang, “Deep learning with differential privacy,” inProc.
+ACM SIGSAC Conf. Comput. Commun. Secur . (CCS), 2016, pp. 308–
+318, doi: 10.1145/2976749.2978318.
+[15] T.-M. H. Hsu, H. Qi, and M. Brown, “Measuring the effects of
+non-identical data distribution for federated visual classification,”
+arXiv:1909.06335, 2019. [Online]. Available: https://arxiv.org/abs/1909.
+06335
+[16] S. Jahanet al., “Federated explainable AI-based Alzheimer’s disease
+prediction with multimodal data,”IEEE Access, vol. 13, pp. 43435–
+43454, 2025, doi: 10.1109/ACCESS.2025.3547343.
+[17] W. Jin, X. Li, and G. Hamarneh, “Evaluating explainable AI on a multi-
+modal medical imaging task: Can existing algorithms fulfill clinical
+requirements?” inProc. AAAI Conf. Artif. Intell., vol. 36, no. 11, 2022,
+pp. 11945–11953, doi: 10.1609/aaai.v36i11.21452.
+[18] R. C. Petersenet al., “Alzheimer’s Disease Neuroimaging Initiative
+(ADNI): Clinical characterization,”Neurology, vol. 74, no. 3, pp. 201–
+209, 2010, doi: 10.1212/WNL.0b013e3181cb3e25.
+[19] D. J. Beutelet al., “Flower: A friendly federated learning research
+framework,” arXiv:2007.14390, 2020. [Online]. Available: https://arxiv.
+org/abs/2007.14390
+

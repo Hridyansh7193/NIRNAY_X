@@ -1,0 +1,35 @@
+# How to Compile nirnay_x_research_paper.tex
+
+This paper is prepared in the official IEEE 2-Column Conference / Transactions research paper format, matching the reference paper style (AKGEC / AKTU standard).
+
+------------------------------------------------------------------------
+Option 1: Overleaf (Recommended - 1-Click Zero Setup)
+------------------------------------------------------------------------
+1. Go to https://www.overleaf.com and log in (free account).
+2. Click "New Project" -> "Upload Project".
+3. Upload `nirnay_x_research_paper.tex` (and optionally `IEEEtran.cls` if requested, though Overleaf has IEEEtran built-in).
+4. Click "Recompile".
+5. Click "Download PDF".
+
+------------------------------------------------------------------------
+Option 2: Local Compilation with MiKTeX or TeX Live (Windows / Linux / macOS)
+------------------------------------------------------------------------
+1. Open PowerShell / Terminal.
+2. Navigate to this folder:
+   cd "C:\Users\rajat\Desktop\FINAL YEAR RESEARCH\FINAL"
+3. Run pdflatex twice (to resolve references, citations, and labels):
+   pdflatex nirnay_x_research_paper.tex
+   pdflatex nirnay_x_research_paper.tex
+4. Output: `nirnay_x_research_paper.pdf` will be generated in the same directory.
+
+------------------------------------------------------------------------
+Key Features Included in the Paper:
+------------------------------------------------------------------------
+- Official IEEEtran 2-column layout matching the reference paper (FedXAI).
+- Authors: Rajat Pandey, Hridyansh Bhadauria, Raghav Mittal, Ragini Goel.
+- Supervisor: Ms. Bhumica (AKGEC / AKTU).
+- Full-width vector architectural TikZ flowchart (Fig. 1) illustrating the 4-tier pipeline.
+- Two algorithmic specifications (Algorithm 1: Master Tri-Stage RAG Pipeline; Algorithm 2: Proviso-Aware Rhetorical Chunking).
+- 5 comprehensive research tables (Hyperparameters, Progressive Retrieval Ablation with statistical significance, Factuality and Adversarial Defense, Persona Adaptation Readability vs Soundness, Statutory Transition Confusion Matrix).
+- Rigorous mathematical formulations (CRF sequence tagging, InfoNCE contrastive loss, ColBERTv2 MaxSim, Entity-boosted BM25Okapi, Personalized PageRank, Article 141 precedential decay, Weighted Reciprocal Rank Fusion, Cross-Encoder re-ranking, Constitutional Transition Routing, Atomic Legal Entailment ALE NLI, Deontic Modality Invariance Loss).
+- Complete IEEE references citing foundational and state-of-the-art legal NLP, Indian statutes (BNS, BNSS, BSA), and Landmark Supreme Court cases.
