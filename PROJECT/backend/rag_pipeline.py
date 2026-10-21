@@ -20,6 +20,7 @@ import logging
 import time
 from typing import Optional
 
+from backend.config import settings
 from backend.ingestion.document_processor import process_document, DocumentMetadata
 from backend.ingestion.chunker import chunk_document, TextChunk
 from backend.retrieval.embeddings import embed_texts
@@ -34,9 +35,32 @@ from backend.reasoning.generator import generate_response
 logger = logging.getLogger("nirnay.pipeline")
 
 
-# ── In-Memory Document Registry ──────────────────────────
-# Stores metadata for uploaded documents (in production, use a DB)
-_document_registry: dict[str, dict] = {}
+# ── Document Registry (Persisted) ─────────────────────────
+import json
+
+_DOCS_STORE_PATH = settings.data_path / "documents.json"
+
+
+def _load_registry() -> dict[str, dict]:
+    if _DOCS_STORE_PATH.exists():
+        try:
+            with open(_DOCS_STORE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load document registry: {e}")
+    return {}
+
+
+def _save_registry():
+    try:
+        _DOCS_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_DOCS_STORE_PATH, "w", encoding="utf-8") as f:
+            json.dump(_document_registry, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save document registry: {e}")
+
+
+_document_registry: dict[str, dict] = _load_registry()
 
 
 def ingest_document(file_path: str, filename: str) -> dict:
@@ -98,6 +122,7 @@ def ingest_document(file_path: str, filename: str) -> dict:
         "full_text_preview": text[:500] + "..." if len(text) > 500 else text,
     }
     _document_registry[metadata.doc_id] = doc_info
+    _save_registry()
 
     logger.info(
         f"[Pipeline Complete] Document ingested: {metadata.doc_id} | "
@@ -190,6 +215,7 @@ def delete_document(doc_id: str) -> bool:
     if doc_id in _document_registry:
         delete_document_chunks(doc_id)
         del _document_registry[doc_id]
+        _save_registry()
         logger.info(f"Document deleted: {doc_id}")
         return True
     return False

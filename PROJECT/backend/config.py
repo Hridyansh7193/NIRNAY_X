@@ -53,6 +53,12 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
     @property
+    def data_path(self) -> Path:
+        path = Path("./data")
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
     def upload_path(self) -> Path:
         path = Path(self.upload_dir)
         path.mkdir(parents=True, exist_ok=True)
