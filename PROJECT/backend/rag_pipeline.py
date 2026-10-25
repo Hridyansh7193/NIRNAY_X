@@ -200,21 +200,29 @@ def query_rag(
     return response
 
 
+def _get_registry() -> dict[str, dict]:
+    """Get the current document registry, refreshing from disk."""
+    global _document_registry
+    _document_registry = _load_registry()
+    return _document_registry
+
+
 def get_documents() -> list[dict]:
     """Get all ingested documents."""
-    return list(_document_registry.values())
+    return list(_get_registry().values())
 
 
 def get_document(doc_id: str) -> Optional[dict]:
     """Get a specific document's metadata."""
-    return _document_registry.get(doc_id)
+    return _get_registry().get(doc_id)
 
 
 def delete_document(doc_id: str) -> bool:
     """Delete a document and its chunks from the system."""
-    if doc_id in _document_registry:
+    registry = _get_registry()
+    if doc_id in registry:
         delete_document_chunks(doc_id)
-        del _document_registry[doc_id]
+        del registry[doc_id]
         _save_registry()
         logger.info(f"Document deleted: {doc_id}")
         return True
@@ -223,10 +231,11 @@ def delete_document(doc_id: str) -> bool:
 
 def get_system_stats() -> dict:
     """Get system-wide statistics."""
+    docs = _get_registry()
     vector_stats = get_collection_stats()
     return {
-        "total_documents": len(_document_registry),
-        "documents_count": len(_document_registry),
+        "total_documents": len(docs),
+        "documents_count": len(docs),
         "total_chunks": vector_stats.get("total_chunks", 0),
         "vector_store": vector_stats,
     }

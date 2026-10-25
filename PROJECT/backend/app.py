@@ -70,6 +70,30 @@ app.add_middleware(
 )
 
 
+# ── Startup Event ────────────────────────────────────────
+@app.on_event("startup")
+async def startup_event():
+    """
+    Ensure baseline legal corpus is pre-embedded on initial boot.
+    If already embedded (count > 0), skips immediately with zero overhead.
+    """
+    from backend.retrieval.vector_store import get_collection
+    collection = get_collection()
+    if collection.count() == 0:
+        logger.info("ChromaDB is empty on first boot. Auto-embedding baseline legal corpus from sample_data/...")
+        sample_dir = settings.data_path.parent / "sample_data"
+        if sample_dir.exists():
+            for pdf_file in sorted(sample_dir.glob("*.pdf")):
+                try:
+                    logger.info(f"Auto-embedding baseline document: {pdf_file.name}")
+                    ingest_document(str(pdf_file), pdf_file.name)
+                except Exception as e:
+                    logger.warning(f"Failed to auto-embed {pdf_file.name}: {e}")
+        logger.info(f"Initial embedding complete! Vector store ready with {collection.count()} chunks.")
+    else:
+        logger.info(f"Vector store already pre-embedded with {collection.count()} chunks. Ready for offline search & chat.")
+
+
 # ── Request/Response Models ──────────────────────────────
 
 class QueryRequest(BaseModel):

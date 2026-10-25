@@ -20,12 +20,17 @@ _local_model = None
 
 
 def _get_local_model():
-    """Lazy-load a sentence-transformers model."""
+    """Lazy-load local ONNX MiniLM or sentence-transformers model."""
     global _local_model
     if _local_model is None:
-        from sentence_transformers import SentenceTransformer
-        logger.info(f"Loading local embedding model: {settings.local_embedding_model}")
-        _local_model = SentenceTransformer(settings.local_embedding_model)
+        try:
+            from chromadb.utils import embedding_functions
+            logger.info("Loading ChromaDB ONNX MiniLM-L6-V2 local semantic model")
+            _local_model = embedding_functions.DefaultEmbeddingFunction()
+        except Exception as e:
+            logger.warning(f"Could not load ONNX MiniLM: {e}. Trying sentence-transformers...")
+            from sentence_transformers import SentenceTransformer
+            _local_model = SentenceTransformer(settings.local_embedding_model)
     return _local_model
 
 
@@ -55,12 +60,17 @@ def embed_texts_openai(texts: list[str]) -> list[list[float]]:
 
 def embed_texts_local(texts: list[str]) -> list[list[float]]:
     """
-    Generate embeddings using a local sentence-transformers model.
+    Generate embeddings using local semantic ONNX or sentence-transformers model.
     """
     model = _get_local_model()
+    # Check if ChromaDB DefaultEmbeddingFunction
+    if hasattr(model, "__call__") and not hasattr(model, "encode"):
+        embeddings = model(texts)
+        return [list(float(x) for x in emb) for emb in embeddings]
+    
     embeddings = model.encode(
         texts,
-        show_progress_bar=True,
+        show_progress_bar=False,
         batch_size=64,
         normalize_embeddings=True,
     )
@@ -68,18 +78,26 @@ def embed_texts_local(texts: list[str]) -> list[list[float]]:
 
 
 def _deterministic_fallback_embed(texts: list[str], dim: int = 384) -> list[list[float]]:
-    """Deterministic hash-based embedding fallback when neither OpenAI nor local model is available."""
+    """Deterministic hash-based embedding fallback with stopword filtering."""
     import hashlib
     import math
+
+    stopwords = {
+        "a", "an", "the", "in", "on", "at", "to", "for", "of", "and", "or", "is",
+        "are", "was", "were", "be", "been", "me", "my", "i", "you", "your", "can",
+        "do", "does", "did", "this", "that", "it", "with", "from", "as", "by"
+    }
 
     results = []
     for text in texts:
         vec = [0.0] * dim
-        words = text.lower().split()
-        if not words:
+        words = [w.strip(".,!?;:\"'()[]{}") for w in text.lower().split()]
+        filtered = [w for w in words if w and w not in stopwords]
+        target_words = filtered if filtered else words
+        if not target_words:
             results.append(vec)
             continue
-        for word in words:
+        for word in target_words:
             h = int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16)
             idx = h % dim
             vec[idx] += 1.0

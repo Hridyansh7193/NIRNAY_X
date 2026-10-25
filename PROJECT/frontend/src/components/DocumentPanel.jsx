@@ -20,13 +20,14 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
   const [viewingDoc, setViewingDoc] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
 
-  const categories = ['ALL', ...new Set(documents.map((d) => d.category || 'General').filter(Boolean))]
+  const categories = ['ALL', ...new Set(documents.map((d) => d.category || d.doc_type || 'General').filter(Boolean))]
 
   const filteredDocs = documents.filter((doc) => {
+    const docCat = doc.category || doc.doc_type || 'General'
     const matchesSearch =
       doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (doc.category && doc.category.toLowerCase().includes(searchTerm.toLowerCase()))
-    const matchesCat = selectedCategory === 'ALL' || (doc.category || 'General') === selectedCategory
+      docCat.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCat = selectedCategory === 'ALL' || docCat === selectedCategory
     return matchesSearch && matchesCat
   })
 
@@ -108,72 +109,77 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
         </div>
       ) : (
         <div className="docs-card-grid">
-          {filteredDocs.map((doc) => (
-            <div key={doc.id} className="doc-card" onClick={() => setViewingDoc(doc)}>
-              <div className="doc-card-top">
-                <div className="doc-type-icon">
-                  <FileText size={20} />
-                </div>
-                <div className="doc-card-header-info">
-                  <h4 className="doc-title" title={doc.filename}>
-                    {doc.filename}
-                  </h4>
-                  <span className="doc-cat-tag">{doc.category || 'Legal Document'}</span>
-                </div>
-              </div>
-
-              <div className="doc-metrics-row">
-                <div className="doc-metric">
-                  <Layers size={13} />
-                  <span>{doc.chunks_count || 0} Chunks</span>
-                </div>
-                <div className="doc-metric">
-                  <Calendar size={13} />
-                  <span>{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Active'}</span>
-                </div>
-              </div>
-
-              {/* Detected Statutory sections pill */}
-              {doc.metadata?.sections && doc.metadata.sections.length > 0 && (
-                <div className="extracted-sections-preview">
-                  <span className="sections-label">Sections:</span>
-                  <div className="sections-tag-list">
-                    {doc.metadata.sections.slice(0, 3).map((sec, i) => (
-                      <span key={i} className="section-pill">
-                        {sec}
-                      </span>
-                    ))}
-                    {doc.metadata.sections.length > 3 && (
-                      <span className="section-pill more">+{doc.metadata.sections.length - 3}</span>
-                    )}
+          {filteredDocs.map((doc) => {
+            const docKey = doc.doc_id || doc.id
+            const docCategory = doc.category || doc.doc_type || 'Legal Document'
+            const sections = doc.sections_cited || doc.metadata?.sections || []
+            return (
+              <div key={docKey} className="doc-card" onClick={() => setViewingDoc(doc)}>
+                <div className="doc-card-top">
+                  <div className="doc-type-icon">
+                    <FileText size={20} />
+                  </div>
+                  <div className="doc-card-header-info">
+                    <h4 className="doc-title" title={doc.filename}>
+                      {doc.filename}
+                    </h4>
+                    <span className="doc-cat-tag">{docCategory}</span>
                   </div>
                 </div>
-              )}
 
-              <div className="doc-card-actions">
-                <button
-                  type="button"
-                  className="btn-outline-sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onSelectDoc(doc.id)
-                  }}
-                  title="Query this document specifically in RAG assistant"
-                >
-                  <Filter size={13} /> Query This
-                </button>
-                <button
-                  type="button"
-                  className="btn-danger-sm"
-                  disabled={deletingId === doc.id}
-                  onClick={(e) => handleDelete(doc.id, e)}
-                  title="Delete document and remove embeddings"
-                >
-                  <Trash2 size={13} />
-                </button>
+                <div className="doc-metrics-row">
+                  <div className="doc-metric">
+                    <Layers size={13} />
+                    <span>{doc.chunks_count || 0} Chunks</span>
+                  </div>
+                  <div className="doc-metric">
+                    <Calendar size={13} />
+                    <span>{doc.created_at || doc.extracted_at ? new Date(doc.created_at || doc.extracted_at).toLocaleDateString() : 'Active'}</span>
+                  </div>
+                </div>
+
+                {/* Detected Statutory sections pill */}
+                {sections.length > 0 && (
+                  <div className="extracted-sections-preview">
+                    <span className="sections-label">Sections:</span>
+                    <div className="sections-tag-list">
+                      {sections.slice(0, 3).map((sec, i) => (
+                        <span key={i} className="section-pill">
+                          {sec}
+                        </span>
+                      ))}
+                      {sections.length > 3 && (
+                        <span className="section-pill more">+{sections.length - 3}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="doc-card-actions">
+                  <button
+                    type="button"
+                    className="btn-outline-sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelectDoc(docKey)
+                    }}
+                    title="Query this document specifically in RAG assistant"
+                  >
+                    <Filter size={13} /> Query This
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger-sm"
+                    disabled={deletingId === docKey}
+                    onClick={(e) => handleDelete(docKey, e)}
+                    title="Delete document and remove embeddings"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -186,7 +192,7 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
                 <FileText size={22} className="modal-icon" />
                 <div>
                   <h3>{viewingDoc.filename}</h3>
-                  <span className="modal-subtitle">Document ID: {viewingDoc.id}</span>
+                  <span className="modal-subtitle">Document ID: {viewingDoc.doc_id || viewingDoc.id}</span>
                 </div>
               </div>
               <button type="button" className="modal-close-btn" onClick={() => setViewingDoc(null)}>
@@ -200,7 +206,7 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
                 <div className="metadata-table">
                   <div className="meta-row">
                     <span className="meta-key">Category:</span>
-                    <span className="meta-val">{viewingDoc.category || 'General Legal Document'}</span>
+                    <span className="meta-val">{viewingDoc.category || viewingDoc.doc_type || 'General Legal Document'}</span>
                   </div>
                   <div className="meta-row">
                     <span className="meta-key">Total Chunks:</span>
@@ -208,20 +214,20 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
                   </div>
                   <div className="meta-row">
                     <span className="meta-key">Ingestion Date:</span>
-                    <span className="meta-val">{viewingDoc.created_at || 'Just now'}</span>
+                    <span className="meta-val">{viewingDoc.created_at || viewingDoc.extracted_at || 'Just now'}</span>
                   </div>
                 </div>
               </div>
 
-              {viewingDoc.metadata && (
+              {(viewingDoc.sections_cited || viewingDoc.dates || viewingDoc.parties || viewingDoc.metadata) && (
                 <div className="inspect-section">
                   <h4>Automated Legal Entity Extraction</h4>
                   <div className="entities-block">
-                    {viewingDoc.metadata.sections && (
+                    {(viewingDoc.sections_cited || viewingDoc.metadata?.sections) && (
                       <div className="entity-group">
                         <strong>Statutory Sections:</strong>
                         <div className="tag-cloud">
-                          {viewingDoc.metadata.sections.map((s, i) => (
+                          {(viewingDoc.sections_cited || viewingDoc.metadata?.sections || []).map((s, i) => (
                             <span key={i} className="statute-tag">
                               {s}
                             </span>
@@ -229,11 +235,11 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
                         </div>
                       </div>
                     )}
-                    {viewingDoc.metadata.dates && (
+                    {(viewingDoc.dates || viewingDoc.metadata?.dates) && (
                       <div className="entity-group">
                         <strong>Identified Dates:</strong>
                         <div className="tag-cloud">
-                          {viewingDoc.metadata.dates.map((d, i) => (
+                          {(viewingDoc.dates || viewingDoc.metadata?.dates || []).map((d, i) => (
                             <span key={i} className="date-tag">
                               {d}
                             </span>
@@ -241,11 +247,11 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
                         </div>
                       </div>
                     )}
-                    {viewingDoc.metadata.parties && (
+                    {(viewingDoc.parties || viewingDoc.metadata?.parties) && (
                       <div className="entity-group">
                         <strong>Identified Parties:</strong>
                         <div className="tag-cloud">
-                          {viewingDoc.metadata.parties.map((p, i) => (
+                          {(viewingDoc.parties || viewingDoc.metadata?.parties || []).map((p, i) => (
                             <span key={i} className="party-tag">
                               {p}
                             </span>
@@ -263,7 +269,7 @@ export default function DocumentPanel({ documents, onRefresh, onUpload, onSelect
                 type="button"
                 className="btn-primary"
                 onClick={() => {
-                  onSelectDoc(viewingDoc.id)
+                  onSelectDoc(viewingDoc.doc_id || viewingDoc.id)
                   setViewingDoc(null)
                 }}
               >
