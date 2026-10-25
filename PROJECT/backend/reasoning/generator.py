@@ -155,7 +155,7 @@ def generate_gemini(
     """Generate a response using Google Gemini API."""
     import google.generativeai as genai
 
-    genai.configure(api_key=settings.gemini_api_key)
+    genai.configure(api_key=settings.gemini_api_key, transport="rest")
     model = genai.GenerativeModel(settings.gemini_model)
 
     messages = _build_rag_prompt(query, context_chunks, persona, chat_history)
@@ -179,6 +179,7 @@ def generate_gemini(
             max_output_tokens=2048,
             top_p=0.9,
         ),
+        request_options={"timeout": 15},
     )
 
     return {
@@ -282,16 +283,11 @@ def generate_response(
     )
 
     try:
-        if provider == "gemini" and has_gemini:
+        if (provider == "gemini" and has_gemini) or (not has_openai and has_gemini):
             result = generate_gemini(query, context_chunks, persona, chat_history)
-        elif provider == "openai" and has_openai:
-            result = generate_openai(query, context_chunks, persona, chat_history)
         elif has_openai:
             result = generate_openai(query, context_chunks, persona, chat_history)
-        elif has_gemini:
-            result = generate_gemini(query, context_chunks, persona, chat_history)
         else:
-            # Fallback to local RAG synthesis
             result = _synthesize_local_rag(query, context_chunks, persona)
 
         result["sources_used"] = len(context_chunks)

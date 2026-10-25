@@ -94,7 +94,7 @@ export default function Sidebar({
             {selectedDocId ? (
               <div className="filtered-doc-chip">
                 <span>Filtered: </span>
-                <strong>{documents.find((d) => d.id === selectedDocId)?.filename || 'Document'}</strong>
+                <strong>{documents.find((d) => (d.doc_id || d.id) === selectedDocId)?.filename || 'Document'}</strong>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -120,12 +120,14 @@ export default function Sidebar({
               </div>
             ) : (
               documents.map((doc) => {
-                const isSelected = selectedDocId === doc.id
+                const docKey = doc.doc_id || doc.id
+                const isSelected = selectedDocId === docKey
+                const docCategory = doc.category || doc.doc_type
                 return (
                   <div
-                    key={doc.id}
+                    key={docKey}
                     className={`sidebar-doc-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => onSelectDoc(isSelected ? null : doc.id)}
+                    onClick={() => onSelectDoc(isSelected ? null : docKey)}
                     title={`Click to ${isSelected ? 'unfilter' : 'filter queries to this document'}`}
                   >
                     <div className="doc-item-title-row">
@@ -134,7 +136,7 @@ export default function Sidebar({
                     </div>
                     <div className="doc-item-meta">
                       <span>{doc.chunks_count || 0} chunks</span>
-                      {doc.category && <span className="category-pill">{doc.category}</span>}
+                      {docCategory && <span className="category-pill">{docCategory}</span>}
                     </div>
                   </div>
                 )

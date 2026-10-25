@@ -1,0 +1,294 @@
+================================================================================
+                        NIRNAY-X PROJECT ANALYSIS
+       AI-Powered Legal Intelligence & Decision-Support Platform
+================================================================================
+
+PROJECT METADATA:
+-----------------
+* Project Title: NirnayX (v1.0 RAG)
+* Project Type: B.Tech CSE Final Year Capstone Project (2023-2027)
+* Institution: Ajay Kumar Garg Engineering College (AKGEC), Ghaziabad
+* University: Dr. A.P.J. Abdul Kalam Technical University (AKTU), Lucknow
+* Project Supervisor: Ms. Bhumica (Assistant Professor, Dept. of CSE)
+* Team Members: Rajat Pandey, Hridyansh Bhadauria, Raghav Mittal, Ragini Goel
+* Primary Domain: Legal AI, Retrieval-Augmented Generation (RAG), NLP, Indian Law
+
+================================================================================
+1. CORE ARCHITECTURE: 11-STEP DETERMINISTIC RAG WORKFLOW
+================================================================================
+
+NirnayX implements a deterministic 11-step pipeline designed to avoid generative
+hallucinations in the Indian legal domain:
+
+  [1. Legal Upload]
+      FastAPI multipart PDF receiver, validating MIME type and file size (<50MB).
+      Stored in ./data/uploads/.
+
+  [2. OCR & Document Parsing]
+      pdfplumber extracts text page-by-page. Document type classification
+      (FIR, Judgment, Contract, Notice, Petition, Bail Application) using
+      domain keyword scoring. Regex extracts statutory sections, dates, and parties.
+
+  [3. Legally-Coherent Text Chunking]
+      statutory clause-aware chunker. Unlike sliding-window chunkers, it:
+      - Preserves provisos ("Provided that...", "Explanation:", "Exception:") with
+        their parent clauses.
+      - Protects common legal abbreviations ("Sec.", "S.", "Hon.", "vs.", "Ltd.",
+        "Art.", "para.") from premature sentence splits.
+      - Classifies rhetorical roles (Statute, Precedent, Ruling, Facts, Argument).
+
+  [4. Dense Vector Embedding Generation]
+      3-tier resilient embedding engine:
+      - Tier 1: OpenAI text-embedding-3-small (Cloud)
+      - Tier 2: sentence-transformers all-MiniLM-L6-v2 (Local model)
+      - Tier 3: Deterministic MD5 hash vectorizer (384-dim, 100% offline fallback)
+
+  [5. ChromaDB Vector Store Indexing]
+      Persistent HNSW cosine index storing chunk text, vector embeddings, and
+      sanitized metadata (doc_id, rhetorical_role, page, clause).
+
+  [6. Natural Language Query Reception]
+      User submits an inquiry via the React UI, optionally specifying a persona
+      (Citizen or Advocate) or filtering to a specific case document.
+
+  [7. Query Vectorization]
+      Query text is mapped to vector space using the active embedding provider.
+
+  [8. Top-K Semantic Similarity Search]
+      ChromaDB cosine retrieval with optional compound boolean filters
+      (by doc_id and rhetorical_role). Cosine distance is converted to similarity %.
+
+  [9. Grounding Context Assembly]
+      Retrieved chunks are structured and labeled with their source document,
+      rhetorical role, and relevance score into the grounding context prompt.
+
+  [10. Dual-Persona LLM Inference]
+      Constrained generation enforcing factual grounding in the context:
+      - Citizen Persona: 8th-grade reading level, plain English explanations,
+        parenthetical definitions, actionable practical remedies.
+      - Advocate Persona: Statutory rigor, case precedents (AIR/SCC), procedural
+        posture, limitation periods, IPC/CrPC to BNS/BNSS statutory cross-references.
+      - Offline Fallback: Internal local RAG synthesizer when API keys are absent.
+
+  [11. Verifiable Citation Delivery]
+      Response is returned with collapsible source excerpts, cosine match scores,
+      latency telemetry, and an explicit legal disclaimer.
+
+================================================================================
+2. COMPREHENSIVE FILE-BY-FILE ANALYSIS
+================================================================================
+
+--------------------------------------------------------------------------------
+A. ROOT CONFIGURATION & SAMPLE DATA
+--------------------------------------------------------------------------------
+
+1. requirements.txt:
+   Backend dependencies including FastAPI, uvicorn, python-multipart, openai,
+   google-generativeai, tiktoken, chromadb, sentence-transformers, pdfplumber,
+   PyPDF2, python-docx, spacy, nltk, pydantic, pydantic-settings, python-dotenv.
+
+2. .env.example:
+   Template for environment variables. Configures LLM_PROVIDER (openai/gemini),
+   API keys, embedding options, ChromaDB directory, host/port, chunk size (512),
+   overlap (64), and top-K retrieval (10).
+
+3. README.md:
+   Project documentation including affiliation, team, 11-step RAG flow diagram,
+   platform modules, directory structure, and setup instructions.
+
+4. sample_data/NirnayX_Legal_Research_Paper.pdf:
+   A complete sample academic PDF paper on NirnayX to test ingestion immediately
+   without needing third-party legal files.
+
+--------------------------------------------------------------------------------
+B. BACKEND MODULES (backend/)
+--------------------------------------------------------------------------------
+
+5. backend/__init__.py:
+   Package initialization file for the backend module.
+
+6. backend/config.py:
+   Centralized Pydantic BaseSettings class loading configuration from .env.
+   Automatically initializes required data directories (./data, ./data/uploads,
+   ./data/chroma_db) and handles CORS origin parsing.
+
+7. backend/ingestion/document_processor.py:
+   - DocumentMetadata: Container class for parsed legal document metadata.
+   - classify_document(): Keyword frequency analyzer classifying documents into
+     FIRs, Judgments, Contracts, Petitions, Bail Applications, etc.
+   - extract_legal_entities(): Regex extractors identifying statutory sections
+     (IPC, CrPC, BNS, BNSS, CPC, NI Act, etc.), dates, and adversarial parties.
+   - extract_text_from_pdf(): Uses pdfplumber to extract text across all pages.
+   - process_document(): Orchestrates parsing, classification, and metadata build.
+
+8. backend/ingestion/chunker.py:
+   - TextChunk: Dataclass storing chunk text, document ID, start/end char offsets,
+     token estimates, and rhetorical roles.
+   - split_into_paragraphs(): Paragraph boundary splitter with proviso lookahead
+     to keep "Provided that..." and exceptions attached to parent sections.
+   - split_into_sentences(): Sentence splitter with a legal abbreviation mask
+     (protecting Sec., Hon., v., Ltd., etc. from being split).
+   - detect_rhetorical_role(): Categorizes chunks into statute, precedent,
+     ruling, facts, or argument.
+   - chunk_document(): Main chunking pipeline applying chunk sizes and overlaps.
+
+9. backend/retrieval/embeddings.py:
+   - embed_texts_openai(): Batch vectorizer for OpenAI text-embedding-3-small.
+   - embed_texts_local(): Local SentenceTransformer (all-MiniLM-L6-v2) vectorizer.
+   - _deterministic_fallback_embed(): MD5 hash-based 384-dimensional vectorizer
+     ensuring the system runs completely offline without external APIs.
+   - embed_texts() / embed_query(): High-level entrypoints with automatic fallback.
+
+10. backend/retrieval/vector_store.py:
+    - get_chroma_client() / get_collection(): Singleton ChromaDB persistent client
+      using HNSW cosine distance.
+    - add_chunks(): Sanitizes metadata and adds vectors in batches of 500.
+    - search(): Performs semantic similarity search with optional doc_id and
+      rhetorical role filtering, returning cosine similarity percentages.
+    - delete_document_chunks(): Removes chunks for a deleted document.
+    - reset_collection(): Clears and reinitializes the vector database.
+
+11. backend/reasoning/generator.py:
+    - SYSTEM_PROMPT_BASE: System instruction enforcing non-lawyer disclaimer,
+      zero-hallucination constraint, and the 2024 Indian criminal law reform
+      (IPC->BNS, CrPC->BNSS, IEA->BSA).
+    - CITIZEN_PERSONA & ADVOCATE_PERSONA: Distinct prompt templates tailored to
+      either common citizens or practicing advocates.
+    - generate_openai() & generate_gemini(): LLM callers with temperature 0.3.
+    - _synthesize_local_rag(): Deterministic local synthesizer extracting key
+      claims directly from retrieved chunks when API keys are not supplied.
+    - generate_response(): Master inference router with fallback management.
+
+12. backend/rag_pipeline.py:
+    - Ingests and registers documents, persisting registry to data/documents.json.
+    - ingest_document(): Executes Steps 1-5 (extract, classify, chunk, embed, index).
+    - query_rag(): Executes Steps 6-11 (search, assemble context, prompt LLM, return).
+    - get_documents(), get_document(), delete_document(), get_system_stats().
+
+13. backend/app.py:
+    - FastAPI application with CORS middleware enabled.
+    - Endpoints:
+        POST   /api/documents/upload  (Upload and ingest legal PDF)
+        GET    /api/documents         (List all ingested documents)
+        GET    /api/documents/{id}    (Get document detail and entities)
+        DELETE /api/documents/{id}    (Delete document and vector chunks)
+        POST   /api/query             (Full 11-step RAG inquiry)
+        POST   /api/search            (Pure semantic vector search)
+        GET    /api/stats             (System analytics and counts)
+        GET    /api/health            (System health check)
+        POST   /api/admin/reset       (Reset vector store)
+
+--------------------------------------------------------------------------------
+C. FRONTEND MODULES (frontend/)
+--------------------------------------------------------------------------------
+
+14. frontend/package.json & vite.config.js:
+    Built with React 19, Vite, Lucide React icons, and Oxlint.
+
+15. frontend/src/index.css & frontend/src/App.css:
+    High-end dark slate legal design system:
+    - Deep slate palette: #0a0d14, #0f1523, #151c2e.
+    - Accent colors: Royal Indigo (#4f46e5), Emerald (#10b981), Amber (#f59e0b).
+    - Fonts: Plus Jakarta Sans for UI, JetBrains Mono for metadata and code.
+    - Glassmorphism, card hover elevations, and responsive layout.
+
+16. frontend/src/App.jsx:
+    Top-level application container managing activeView ('chat', 'documents',
+    'search', 'stats'), persona ('citizen', 'advocate'), document list, and
+    selectedDocId for corpus filtering.
+
+17. frontend/src/components/Header.jsx:
+    Top navigation bar displaying NirnayX brand icon, dual-persona toggle switch,
+    and "Upload Legal Doc" shortcut button.
+
+18. frontend/src/components/Sidebar.jsx:
+    Collapsible sidebar with navigation items, badge counts, active corpora list,
+    selected document filter chip with clear button, and pipeline status dot.
+
+19. frontend/src/components/ChatPanel.jsx:
+    Interactive RAG assistant supporting multi-turn conversations (passing the
+    last 6 messages), suggested inquiry chips, collapsible source citation cards
+    with relevance match %, retrieval telemetry (latency, chunks evaluated, engine),
+    copy-to-clipboard, and reset chat.
+
+20. frontend/src/components/DocumentPanel.jsx:
+    Case file repository with search bar, category filter, document cards showing
+    chunks count, dates, and detected statutory section pills. Features a
+    detailed modal inspecting extracted statutory sections, dates, and parties.
+
+21. frontend/src/components/SearchPanel.jsx:
+    Specialized zero-hallucination semantic search tester across the vector
+    store without LLM generation. Allows configuring Top-K (3 to 15) and
+    filtering by rhetorical role (Statute, Ruling, Facts, Argument, Procedure).
+
+22. frontend/src/components/StatsPanel.jsx:
+    System analytics and academic benchmarking dashboard:
+    - System KPIs: Ingested documents, chunks, inference provider, citation score.
+    - IR Benchmarks: Precision@5 (91.4%), Recall@K (88.7%), MRR (0.932), NDCG@5 (0.906).
+    - Generation Benchmarks: Faithfulness (97.2%), Answer Relevance (94.8%),
+      Context Utilization (89.3%), ROUGE-L (0.461).
+    - UN Sustainable Development Goal 16 (Peace, Justice, Strong Institutions) alignment.
+
+23. frontend/src/components/UploadModal.jsx:
+    Drag-and-drop PDF dropzone supporting files up to 25MB, with interactive
+    progress updates through all 5 ingestion stages and automated active corpora refresh.
+
+================================================================================
+3. KEY ENGINEERING HIGHLIGHTS & INNOVATIONS
+================================================================================
+
+1. Legal Domain Customizations:
+   - Provisos and exceptions are preserved with their parent statutory clauses.
+   - Legal abbreviations ("Hon.", "Sec.", "vs.", "Ltd.") are shielded so citations
+     are not severed mid-sentence.
+   - Automatic classification of legal documents (FIRs, Judgments, Petitions, etc.)
+     and extraction of statutory sections, dates, and parties via regex.
+
+2. Indian Criminal Law Reform Awareness:
+   - Built-in awareness of the 2024 transition from colonial-era codes to modern
+     statutes:
+     * IPC 1860  --> Bharatiya Nyaya Sanhita (BNS) 2023
+     * CrPC 1973 --> Bharatiya Nagarik Suraksha Sanhita (BNSS) 2023
+     * IEA 1872  --> Bharatiya Sakshya Adhiniyam (BSA) 2023
+
+3. Resilient Multi-Tier Fallbacks:
+   - System functions out of the box even without external paid APIs.
+   - Embedding: OpenAI --> local sentence-transformers --> deterministic hash.
+   - Reasoning: OpenAI / Gemini --> local grounded extractive RAG synthesizer.
+
+================================================================================
+4. OFFLINE LEGAL CORPORA & UNIFIED INGESTION
+================================================================================
+
+The platform includes 8 offline pre-indexed legal documents with 137 statutory
+clauses and binding landmark Supreme Court ratio decidendi:
+
+  1. Bharatiya Nagarik Suraksha Sanhita (BNSS 2023) - Procedural Criminal Law
+  2. Bharatiya Nyaya Sanhita (BNS 2023) & IPC Concordance - Substantive Penal Law
+  3. Bharatiya Sakshya Adhiniyam (BSA 2023) & IEA Concordance - Electronic Evidence
+  4. Landmark Precedents & Constitutional Provisions (Articles 20(1), 21, 22, 141)
+  5. Indian Penal Code (IPC 1860) Core Provisions - Substantive Legacy Offenses
+  6. Code of Criminal Procedure (CrPC 1973) Core Provisions - Legacy Procedure
+  7. Indian Evidence Act (IEA 1872) & Historic SC Precedents (Bhajan Lal, Sibbia, etc.)
+  8. NirnayX Legal Research Paper (Baseline Benchmark)
+
+To rebuild/re-ingest all statutory documents in a single unified command:
+  python scripts/ingest_all_corpora.py
+
+================================================================================
+5. QUICK RUN GUIDE
+================================================================================
+
+Backend:
+  1. Open terminal in PROJECT/
+  2. python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000 --reload
+  API Docs: http://localhost:8000/docs
+
+Frontend:
+  1. Open terminal in PROJECT/frontend/
+  2. npm run dev
+  Web App: http://localhost:5173
+
+================================================================================
+RECORD UPDATED: Permanent Analysis File Saved in Workspace.
+================================================================================
