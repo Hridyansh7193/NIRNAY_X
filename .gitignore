@@ -48,6 +48,10 @@ share/python-wheels/
 *.db
 *.sqlite3
 **/chroma_db/
+!PROJECT/data/chroma_db/
+!PROJECT/data/chroma_db/**
+!PROJECT/data/chroma_db/*.sqlite3
+!PROJECT/data/chroma_db/**/*.bin
 
 # Logs
 logs
