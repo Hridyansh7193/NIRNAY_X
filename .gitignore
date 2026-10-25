@@ -45,10 +45,9 @@ share/python-wheels/
 
 # Database / Storage
 .chroma/
-uploads/
-data/
 *.db
 *.sqlite3
+**/chroma_db/
 
 # Logs
 logs
