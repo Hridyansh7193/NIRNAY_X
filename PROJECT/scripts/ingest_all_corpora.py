@@ -29,8 +29,8 @@ from scripts.generate_and_ingest_legacy_statutes import (
 )
 from backend.rag_pipeline import ingest_document
 
-UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+SAMPLE_DIR = PROJECT_ROOT / "sample_data"
+SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def build_and_ingest_all():
@@ -50,7 +50,7 @@ def build_and_ingest_all():
     ]
 
     for gen_func, filename, doc_type in corpora:
-        pdf_path = UPLOAD_DIR / filename
+        pdf_path = SAMPLE_DIR / filename
         print(f"\n[1/2] Generating PDF: {filename}...")
         gen_func(pdf_path)
 

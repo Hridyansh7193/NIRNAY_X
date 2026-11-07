@@ -131,7 +131,7 @@ def create_bnss_pdf(pdf_path: str):
     return pdf_path
 
 if __name__ == "__main__":
-    target_pdf = "data/uploads/Bharatiya_Nagarik_Suraksha_Sanhita_BNSS_2023.pdf"
+    target_pdf = "sample_data/Bharatiya_Nagarik_Suraksha_Sanhita_BNSS_2023.pdf"
     create_bnss_pdf(target_pdf)
     print("Ingesting BNSS PDF into NirnayX vector store...")
     result = ingest_document(target_pdf, "Bharatiya_Nagarik_Suraksha_Sanhita_BNSS_2023.pdf")
