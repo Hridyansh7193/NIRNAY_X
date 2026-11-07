@@ -72,3 +72,7 @@ lerna-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Research Paper (canonical location is in FINAL YEAR RESEARCH)
+PROJECT/research_paper/
+research_paper/
