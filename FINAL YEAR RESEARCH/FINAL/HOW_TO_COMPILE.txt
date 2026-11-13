@@ -1,35 +1,50 @@
-# How to Compile nirnay_x_research_paper.tex
+# How to Compile the Nirnay-X Research Paper
 
 This paper is prepared in the official IEEE 2-Column Conference / Transactions research paper format, matching the reference paper style (AKGEC / AKTU standard).
 
-------------------------------------------------------------------------
-Option 1: Overleaf (Recommended - 1-Click Zero Setup)
-------------------------------------------------------------------------
-1. Go to https://www.overleaf.com and log in (free account).
-2. Click "New Project" -> "Upload Project".
-3. Upload `nirnay_x_research_paper.tex` (and optionally `IEEEtran.cls` if requested, though Overleaf has IEEEtran built-in).
-4. Click "Recompile".
-5. Click "Download PDF".
+========================================================================
+Files Available in this Folder:
+========================================================================
+1. nirnay_x_research_paper.tex (LATEST - Recommended)
+   - Contains complete research with self-derived formulations and original algorithms (PDBC chunking, PAVE verification, wRRF multi-channel retrieval, Article 141 precedential viability tensor, Deontic Modality Invariance).
+   - Cleaned bibliography with full metadata and zero missing citations.
+   
+2. nirnay_x_research_paper_new.tex
+   - Exact identical copy of the new research paper for convenience.
 
-------------------------------------------------------------------------
+3. nirnay_x_research_paper_original.tex
+   - The un-modified original research paper preserved exactly as it was originally written.
+
+4. IEEEtran.cls
+   - Official IEEE document class required for local LaTeX compilers.
+
+========================================================================
+Option 1: Overleaf (Recommended - 1-Click Zero Setup)
+========================================================================
+1. Go to https://www.overleaf.com and log in (free account).
+2. Click 'New Project' -> 'Upload Project'.
+3. Upload 'nirnay_x_research_paper.tex' (and optionally 'IEEEtran.cls', though Overleaf has IEEEtran built-in).
+4. Click 'Recompile'.
+5. Click 'Download PDF'.
+
+========================================================================
 Option 2: Local Compilation with MiKTeX or TeX Live (Windows / Linux / macOS)
-------------------------------------------------------------------------
+========================================================================
 1. Open PowerShell / Terminal.
 2. Navigate to this folder:
-   cd "C:\Users\rajat\Desktop\FINAL YEAR RESEARCH\FINAL"
+   cd 'C:\Users\rajat\Desktop\FINAL YEAR RESEARCH\FINAL'
 3. Run pdflatex twice (to resolve references, citations, and labels):
    pdflatex nirnay_x_research_paper.tex
    pdflatex nirnay_x_research_paper.tex
-4. Output: `nirnay_x_research_paper.pdf` will be generated in the same directory.
+4. Output: 'nirnay_x_research_paper.pdf' will be generated in this directory.
 
-------------------------------------------------------------------------
-Key Features Included in the Paper:
-------------------------------------------------------------------------
-- Official IEEEtran 2-column layout matching the reference paper (FedXAI).
-- Authors: Rajat Pandey, Hridyansh Bhadauria, Raghav Mittal, Ragini Goel.
-- Supervisor: Ms. Bhumica (AKGEC / AKTU).
-- Full-width vector architectural TikZ flowchart (Fig. 1) illustrating the 4-tier pipeline.
-- Two algorithmic specifications (Algorithm 1: Master Tri-Stage RAG Pipeline; Algorithm 2: Proviso-Aware Rhetorical Chunking).
-- 5 comprehensive research tables (Hyperparameters, Progressive Retrieval Ablation with statistical significance, Factuality and Adversarial Defense, Persona Adaptation Readability vs Soundness, Statutory Transition Confusion Matrix).
-- Rigorous mathematical formulations (CRF sequence tagging, InfoNCE contrastive loss, ColBERTv2 MaxSim, Entity-boosted BM25Okapi, Personalized PageRank, Article 141 precedential decay, Weighted Reciprocal Rank Fusion, Cross-Encoder re-ranking, Constitutional Transition Routing, Atomic Legal Entailment ALE NLI, Deontic Modality Invariance Loss).
-- Complete IEEE references citing foundational and state-of-the-art legal NLP, Indian statutes (BNS, BNSS, BSA), and Landmark Supreme Court cases.
+========================================================================
+Key Innovations & Novel Formulations:
+========================================================================
+- Original Algorithm 1: Proviso-Aware Rhetorical Chunking and Bundling (PDBC)
+- Original Algorithm 2: Nirnay-X Grounded Persona-Adaptive Verification Engine (PAVE)
+- Asymmetric Tri-Channel Relevance Scoring ({\\text{retrieval}}$) with statutory entity multiplier
+- Article 141 Precedential Viability Tensor ($\\mathbf{\\Upsilon}(v)$) with bench strength weighting and temporal decay
+- Constitutional Statutory Concordance State-Space Operator ($\\mathbf{\\Phi}_{\\text{const}}$) resolving July 1, 2024 IPC/CrPC/IEA to BNS/BNSS/BSA transition
+- Atomic Legal Entailment (ALE) propositional verification metric bound to 0.8% hallucination rate
+- Deontic Modality Invariance Loss preserving legal force ('shall' vs 'may') during citizen persona simplification

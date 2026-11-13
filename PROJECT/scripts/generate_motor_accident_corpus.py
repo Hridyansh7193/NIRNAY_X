@@ -15,9 +15,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 from backend.rag_pipeline import ingest_document
 
-UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
 SAMPLE_DIR = PROJECT_ROOT / "sample_data"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -145,16 +143,13 @@ def create_motor_accidents_pdf(output_path: Path):
 
 def main():
     filename = "Motor_Accidents_Rash_Driving_and_FIR_Remedies.pdf"
-    pdf_upload = UPLOAD_DIR / filename
     pdf_sample = SAMPLE_DIR / filename
 
-    create_motor_accidents_pdf(pdf_upload)
-    import shutil
-    shutil.copy(str(pdf_upload), str(pdf_sample))
-    print(f"Copied to sample_data: {pdf_sample}")
+    create_motor_accidents_pdf(pdf_sample)
+    print(f"Generated in sample_data: {pdf_sample}")
 
     print(f"\nIngesting {filename} into NirnayX RAG Pipeline...")
-    res = ingest_document(str(pdf_upload), filename)
+    res = ingest_document(str(pdf_sample), filename)
     print(f"Ingestion complete: {res['chunks_count']} chunks indexed (Doc ID: {res['doc_id']})")
 
 

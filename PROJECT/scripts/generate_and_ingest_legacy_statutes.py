@@ -22,8 +22,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
 
 from backend.rag_pipeline import ingest_document
 
-UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+SAMPLE_DIR = PROJECT_ROOT / "sample_data"
+SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def create_ipc_legacy_pdf(output_path: Path):
@@ -318,10 +318,10 @@ def create_iea_and_historic_precedents_pdf(output_path: Path):
 
 
 def main():
-    print("Generating comprehensive legacy legal reference PDFs...")
-    ipc_pdf = UPLOAD_DIR / "Indian_Penal_Code_IPC_1860_Core_Provisions.pdf"
-    crpc_pdf = UPLOAD_DIR / "Code_of_Criminal_Procedure_CrPC_1973_Core_Provisions.pdf"
-    iea_pdf = UPLOAD_DIR / "Indian_Evidence_Act_IEA_1872_and_Historic_Precedents.pdf"
+    print("Generating comprehensive legacy legal reference PDFs in sample_data...")
+    ipc_pdf = SAMPLE_DIR / "Indian_Penal_Code_IPC_1860_Core_Provisions.pdf"
+    crpc_pdf = SAMPLE_DIR / "Code_of_Criminal_Procedure_CrPC_1973_Core_Provisions.pdf"
+    iea_pdf = SAMPLE_DIR / "Indian_Evidence_Act_IEA_1872_and_Historic_Precedents.pdf"
 
     create_ipc_legacy_pdf(ipc_pdf)
     create_crpc_legacy_pdf(crpc_pdf)

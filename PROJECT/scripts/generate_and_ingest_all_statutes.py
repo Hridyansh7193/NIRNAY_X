@@ -21,8 +21,8 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
 from backend.rag_pipeline import ingest_document
 
-UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+SAMPLE_DIR = PROJECT_ROOT / "sample_data"
+SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def create_bns_pdf(output_path: Path):
@@ -257,10 +257,10 @@ def create_precedents_and_constitution_pdf(output_path: Path):
 
 
 def main():
-    print("Generating authoritative PDFs for NirnayX legal corpus...")
-    bns_pdf = UPLOAD_DIR / "Bharatiya_Nyaya_Sanhita_BNS_and_IPC_2023.pdf"
-    bsa_pdf = UPLOAD_DIR / "Bharatiya_Sakshya_Adhiniyam_BSA_and_IEA_2023.pdf"
-    prec_pdf = UPLOAD_DIR / "Landmark_Precedents_and_Constitutional_Provisions.pdf"
+    print("Generating authoritative PDFs for NirnayX legal corpus in sample_data...")
+    bns_pdf = SAMPLE_DIR / "Bharatiya_Nyaya_Sanhita_BNS_and_IPC_2023.pdf"
+    bsa_pdf = SAMPLE_DIR / "Bharatiya_Sakshya_Adhiniyam_BSA_and_IEA_2023.pdf"
+    prec_pdf = SAMPLE_DIR / "Landmark_Precedents_and_Constitutional_Provisions.pdf"
 
     create_bns_pdf(bns_pdf)
     create_bsa_pdf(bsa_pdf)
