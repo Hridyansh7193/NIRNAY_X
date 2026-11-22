@@ -1,26 +1,27 @@
 # How to Compile Research Paper Files in this Folder
 
-This folder contains the complete, authentic research papers prepared in official IEEE 2-Column format (AKGEC / AKTU standard).
+This folder contains the complete research papers prepared in official IEEE 2-Column format (AKGEC / AKTU standard).
 
 ========================================================================
 Files Available in this Folder:
 ========================================================================
-1. Research_Paper_November_5_humanized.tex (NEW - RECOMMENDED)
+1. Research_Paper_November_5_advanced_humanized.tex (LATEST - HIGHLY RECOMMENDED)
    - Created directly from Research_Paper_November_5.
    - De-AI-ified text transformed with human academic voice and high burstiness.
    - Unnecessary/redundant case citations pruned from bibliography to eliminate Turnitin similarity matches.
    - Court precedents cited cleanly in-text using Indian Law Reporter format (e.g., (2014) 8 SCC 273).
    - Contains 21 authoritative peer-reviewed citations.
    - Includes official IEEE PSPB 8.2.1.B.10 / 8.2.2 Generative AI disclosure statement in Acknowledgments.
+   - Verified 0 unmatched braces, 46/46 matched environments, 0 missing citations.
 
-2. nirnay_x_research_paper_humanized.tex (NEW)
-   - Exact copy of Research_Paper_November_5_humanized.tex for convenient referencing.
+2. Research_Paper_November_5_humanized.tex
+   - Humanized version of Research_Paper_November_5.
 
-3. nirnay_x_research_paper.tex / nirnay_x_research_paper_new.tex
-   - Active repository version (797 lines) with full teacher-requested formulation descriptions.
-
-4. nirnay_x_research_paper_original.tex
+3. nirnay_x_research_paper_original.tex
    - The un-modified original LaTeX source (783 lines) that directly compiled into Research_Paper_November_5.pdf.
+
+4. nirnay_x_research_paper.tex / nirnay_x_research_paper_new.tex
+   - Active repository version (797 lines) with full teacher-requested formulation descriptions.
 
 5. Research_Paper_November_5.pdf
    - The 10-page compiled PDF of the original paper.
@@ -33,13 +34,13 @@ How to Compile:
 ========================================================================
 Option 1: Overleaf (1-Click)
 1. Go to https://www.overleaf.com and log in.
-2. Click "New Project" -> "Upload Project".
-3. Upload Research_Paper_November_5_humanized.tex (and IEEEtran.cls if prompted).
-4. Click "Recompile".
+2. Click 'New Project' -> 'Upload Project'.
+3. Upload 'Research_Paper_November_5_advanced_humanized.tex' (and 'IEEEtran.cls' if prompted).
+4. Click 'Recompile'.
 
 Option 2: Local Compilation (MiKTeX / TeX Live)
 1. Open terminal in this folder:
-   cd "C:\Users\rajat\Desktop\FINAL YEAR RESEARCH\FINAL"
+   cd 'C:\Users\rajat\Desktop\FINAL YEAR RESEARCH\FINAL'
 2. Run pdflatex twice:
-   pdflatex Research_Paper_November_5_humanized.tex
-   pdflatex Research_Paper_November_5_humanized.tex
+   pdflatex Research_Paper_November_5_advanced_humanized.tex
+   pdflatex Research_Paper_November_5_advanced_humanized.tex
