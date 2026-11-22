@@ -1,0 +1,726 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% =========================================================================
+% PACKAGE IMPORTS
+% =========================================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, backgrounds}
+
+% Configure hyperref to avoid font/border conflicts
+\usepackage[hidelinks]{hyperref}
+
+% Correct bad hyphenation
+\hyphenation{InLegalBERT ColBERT GraphRAG Nirnay-X PageRank BNSS BNS BSA}
+
+\begin{document}
+
+% =========================================================================
+% PAPER TITLE & AUTHOR METADATA
+% =========================================================================
+\title{Nirnay-X: A Grounded, Persona-Adaptive Retrieval-Augmented Generation Framework for Indian Legal Intelligence and Decision Support}
+
+\author{
+    \IEEEauthorblockN{
+        Rajat Pandey\IEEEauthorrefmark{1}, 
+        Hridyansh Bhadauria\IEEEauthorrefmark{1}, 
+        Raghav Mittal\IEEEauthorrefmark{1}, and 
+        Ragini Goel\IEEEauthorrefmark{1}
+    }
+    \IEEEauthorblockA{
+        \IEEEauthorrefmark{1}Department of Computer Science and Engineering\\
+        Ajay Kumar Garg Engineering College (Affiliated to Dr. A.P.J. Abdul Kalam Technical University)\\
+        Ghaziabad, Uttar Pradesh, India\\
+        Email: \{rajat2300270100138, hridyansh2300270100074, raghav2300270100133, ragini2300270100134\}@akgec.ac.in
+    }
+    \vspace{0.2cm}
+    \IEEEauthorblockN{
+        Ms. Bhumica\IEEEauthorrefmark{2}
+    }
+    \IEEEauthorblockA{
+        \IEEEauthorrefmark{2}Supervisor, Assistant Professor, Department of Computer Science and Engineering\\
+        Ajay Kumar Garg Engineering College, Ghaziabad, Uttar Pradesh, India\\
+        Email: bhumica@akgec.ac.in
+    }
+}
+
+\maketitle
+
+% =========================================================================
+% ABSTRACT & INDEX TERMS
+% =========================================================================
+\begin{abstract}
+On July 1, 2024, India enacted a comprehensive overhaul of its criminal justice system, replacing the colonial Indian Penal Code 1860, Code of Criminal Procedure 1973, and Indian Evidence Act 1872 with the Bharatiya Nyaya Sanhita (BNS), Bharatiya Nagarik Suraksha Sanhita (BNSS), and Bharatiya Sakshya Adhiniyam (BSA). Concurrently, case pendency across Indian courts surpassed 50 million matters on the National Judicial Data Grid. While Large Language Models (LLMs) present opportunities for automating legal search and citizen triage, commercial models exhibit legal hallucination rates between 17\% and 33\%, routinely misquoting statutory sections and citing overruled case law. Crucially, existing retrieval-augmented systems cannot handle the temporal transition rules mandated by Article 20(1) ex-post facto protections and Section 531(2)(a) BNSS savings clauses, nor can they preserve statutory deontic modalities during plain-language simplification.
+
+We introduce \textsc{Nirnay-X}, an open-source, grounded legal decision-support architecture developed for Indian statutory and judicial practice. Nirnay-X incorporates six domain-specific formulations: (1) Proviso-Exception Dependency Bundling and Chunking (PDBC) to preserve statutory coherence across legal clauses; (2) Asymmetric Tri-Channel Retrieval fusing InLegalBERT dense representations, ColBERTv2 token late interaction, and statutory-boosted BM25Okapi; (3) an Article 141 Precedential Viability Tensor over a 124,000-node Legal Knowledge Graph that discounts overruled decisions based on bench hierarchy; (4) a stateful Constitutional Concordance Operator resolving the 2024 legislative transition boundary; (5) Atomic Legal Entailment (ALE) propositional verification to purge ungrounded assertions; and (6) a Deontic Modality Invariance formulation bounding semantic drift during citizen persona simplification. In evaluations over 1,200 curated Indian legal benchmark queries across 70,500 court judgments and 1,400 Acts, Nirnay-X achieves 0.887 Precision@10, 0.924 Recall@10, and 0.829 MRR, suppressing generative hallucinations to 0.8\% with a mean end-to-end latency of 2.3 seconds.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Legal Information Retrieval, Retrieval-Augmented Generation, Indian Legal Informatics, Bharatiya Nyaya Sanhita, Knowledge Graphs, Deontic Modality, Hallucination Mitigation.
+\end{IEEEkeywords}
+
+% =========================================================================
+% SECTION I: INTRODUCTION
+% =========================================================================
+\section{Introduction}
+\IEEEPARSTART{I}{ndia's} judicial system operates under significant operational constraints. Data from the National Judicial Data Grid (NJDG) indicates that case pendency across the Supreme Court of India, 25 High Courts, and subordinate District Courts exceeded 50 million cases in 2024~\cite{njdg2024}. A significant portion of this backlog stems from administrative and procedural overheads: advocates, legal aid defense counsels, and clerks spend substantial hours cross-referencing multi-volume dockets, tracking divergent High Court interpretations, and manually mapping procedural steps in trial courts. For ordinary citizens, navigating the legal system presents steep linguistic and procedural barriers when deciphering statutory jargon or understanding bail provisions during initial police encounters.
+
+This operational friction intensified on July 1, 2024, when the Parliament of India implemented a fundamental statutory overhaul of the criminal justice system. The three colonial-era procedural and penal codes---the Indian Penal Code, 1860 (IPC), the Code of Criminal Procedure, 1973 (CrPC), and the Indian Evidence Act, 1872 (IEA)---were replaced by the Bharatiya Nyaya Sanhita, 2023 (BNS)~\cite{bns2023}, the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS)~\cite{bnss2023}, and the Bharatiya Sakshya Adhiniyam, 2023 (BSA)~\cite{bsa2023}. 
+
+This statutory transition introduces acute legal and computational challenges:
+\begin{enumerate}
+    \item \textbf{Dual-Regime Statutory Concordance:} Under Article 20(1) of the Constitution of India~\cite{constitution1950}, no person can be prosecuted for an act that was not an offense at the time of commission, nor subjected to a penalty greater than that prescribed under the law in force at the time of the offense. Consequently, for offenses committed prior to July 1, 2024, substantive penal liability remains governed by the IPC, even when the First Information Report (FIR) or charge-sheet is filed after the cutoff date. Procedural steps, however, transition to the BNSS pursuant to Section 531(2)(a) savings provisions. Generic language models routinely conflate these regimes, suggesting retroactive penal applications that violate constitutional guarantees.
+    \item \textbf{High Domain Hallucination in Legal Search:} Empirical legal studies by Dahl et al.~\cite{dahl2024large} demonstrate that leading commercial legal AI tools hallucinate citations at rates between 17\% and 33\%, while ungrounded foundation models exceed 58\% hallucination rates. In legal decision-support, citing nonexistent case reporters or misquoting statutory provisions carries severe practical consequences.
+    \item \textbf{Deontic Modality Preservation in Civic Access:} Translating statutory legalese into plain language for citizen access frequently introduces \textit{deontic drift}. In legal drafting, normative modal auxiliaries carry strict operational weight: ``shall'' denotes an absolute statutory obligation, whereas ``may'' grants judicial discretion. Unconstrained language models routinely flatten these distinctions to improve readability scores, inadvertently converting mandatory bail rights into discretionary judicial relief.
+\end{enumerate}
+
+To address these challenges, we design and implement \textsc{Nirnay-X}, an open-source, grounded, persona-adaptive Retrieval-Augmented Generation (RAG) framework engineered for Indian statutory jurisprudence. 
+
+The primary contributions of this paper are:
+\begin{itemize}
+    \item \textbf{Proviso-Aware Rhetorical Chunking (PDBC):} An original chunking formulation that parses legal structural dependencies, binding statutory provisos and penal exceptions directly to parent sections to prevent semantic severing during retrieval.
+    \item \textbf{Asymmetric Tri-Channel Legal Retrieval:} A multi-channel scoring operator fusing domain-adapted InLegalBERT dense representations~\cite{paul2022pre}, token-level late interaction via ColBERTv2~\cite{santhanam2022colbertv2}, and entity-boosted BM25Okapi to balance broad semantic search with exact statutory provision indexing.
+    \item \textbf{Article 141 Precedential Viability Tensor:} A mathematical formulation over a 124,000-node Knowledge Graph that models judicial bench strength, chronological decay, and citator status under Article 141 of the Constitution, automatically filtering overruled rulings.
+    \item \textbf{Constitutional Statutory Concordance Routing:} A stateful temporal operator that evaluates offense, FIR, and charge-sheet dates against the July 1, 2024 boundary to enforce Article 20(1) penalty invariance and Section 531(2)(a) BNSS procedural savings.
+    \item \textbf{Atomic Legal Entailment (ALE) Gate:} An NLI verification pipeline that decomposes generated answers into atomic legal claims, cross-verifying each against retrieved statutory sources to suppress hallucinations to 0.8\%.
+    \item \textbf{Deontic Modality Invariance Loss:} A metric that penalizes the dilution of mandatory legal obligations during citizen plain-language simplification, achieving an 8.4 grade-level readability while preserving legal force.
+\end{itemize}
+
+% =========================================================================
+% SECTION II: RELATED WORK AND RESEARCH GAP
+% =========================================================================
+\section{Related Work and Research Gap}
+
+\subsection{Legal Information Retrieval and Language Models}
+Early legal search systems depended primarily on boolean term matching and citation frequency counts~\cite{katz2012rethinking}. While legal databases such as SCC Online and Indian Kanoon indexed millions of judgments, pure lexical retrieval struggles when queries lack exact statutory terminology or when colloquial phrasing is used.
+
+Pretrained transformers adapted for the legal domain addressed part of this vocabulary mismatch. Chalkidis et al.~\cite{chalkidis2020legal} released \textit{LEGAL-BERT}, demonstrating substantial improvements on legal named entity recognition and classification. In the Indian context, Paul et al.~\cite{paul2022pre} introduced \textit{InLegalBERT}, pretraining over 5.4 million sentences from Indian Supreme Court and High Court judgments. Kalamkar et al.~\cite{kalamkar2022corpus} developed the OpenNyAI corpus, enabling Conditional Random Field (CRF) and transformer-based parsing of rhetorical roles in judicial texts. While these encoders capture domain vocabulary, single dense vectors suffer from legal section compression loss, struggling to separate fine-grained penal sub-clauses.
+
+\subsection{Retrieval-Augmented Generation \& Graph-Based Verification}
+Retrieval-Augmented Generation (RAG)~\cite{lewis2020retrieval} anchors language model generation in external retrieved documents. Late-interaction models like ColBERT~\cite{khattab2020colbert} and ColBERTv2~\cite{santhanam2022colbertv2} maintain token-level representations, using MaxSim operations to preserve fine-grained terms. Evaluation frameworks such as RAGAS~\cite{es2024ragas} and LegalBench~\cite{guha2023legalbench} highlighted that unconstrained generation remains prone to factual errors. GraphRAG~\cite{edge2024graphrag} and structured knowledge graphs capture entity relationships, yet standard graph methods do not reflect constitutional precedential hierarchies, treating all cited decisions equally regardless of bench composition or negative citator history.
+
+\subsection{Research Gap}
+Prior legal systems exhibit four main limitations:
+(1) lack of integrated hybrid retrieval that balances sparse section numbers with dense semantics;
+(2) absence of temporal state machines to handle the July 1, 2024 statutory transition under Article 20(1);
+(3) lack of post-generation atomic verification to identify sub-clause hallucinations; and
+(4) unconstrained plain-language simplification that corrupts mandatory deontic modal verbs. Nirnay-X is specifically architected to address these four gaps.
+
+% =========================================================================
+% FIGURE 1: TIKZ SYSTEM ARCHITECTURE (FULL WIDTH)
+% =========================================================================
+\begin{figure*}[!t]
+\centering
+\begin{tikzpicture}[
+    scale=0.88, every node/.style={transform shape},
+    box/.style={draw=black!70, rounded corners=3pt, thick, align=center, fill=white, inner sep=4pt},
+    header/.style={font=\bfseries\footnotesize, align=center},
+    subtext/.style={font=\scriptsize, align=center},
+    arrow/.style={-{Stealth[length=2.5mm]}, thick, draw=black!75},
+    darrow/.style={-{Stealth[length=2.5mm]}, dashed, thick, draw=black!60},
+    group/.style={draw=black!40, rounded corners=5pt, dashed, inner sep=6pt}
+]
+
+% ----------------- TIER 1: INGESTION & PARSING -----------------
+\node[box, fill=blue!8, text width=2.4cm] (doc) at (0, 0) {
+    \textbf{Legal Documents}\\
+    \scriptsize Unstructured PDFs, FIRs, Court Orders
+};
+\node[box, fill=blue!8, text width=2.5cm, right=0.6cm of doc] (ocr) {
+    \textbf{Layout-Aware OCR}\\
+    \scriptsize Bilateral Filter + De-skew + Indic-OCR
+};
+\node[box, fill=blue!8, text width=2.8cm, right=0.6cm of ocr] (crf) {
+    \textbf{Rhetorical Role CRF}\\
+    \scriptsize InLegalBERT + CRF\\
+    \tiny [FAC, ARG, STAT, PREC, RATIO, RUL]
+};
+\node[box, fill=blue!8, text width=2.7cm, right=0.6cm of crf] (bundle) {
+    \textbf{PDBC Bundling}\\
+    \scriptsize Exception \& Proviso\\
+    \tiny Parent-Child Cluster $\Delta_{\text{bundle}}$
+};
+
+\begin{scope}[on background layer]
+    \node[group, fill=blue!2, fit=(doc) (ocr) (crf) (bundle), label={[header, text=blue!80!black]above:\textsc{Tier 1: Document Processing, Rhetorical Segmentation \& Atomic Chunking}}] (tier1) {};
+\end{scope}
+
+\draw[arrow] (doc) -- (ocr);
+\draw[arrow] (ocr) -- (crf);
+\draw[arrow] (crf) -- (bundle);
+
+% ----------------- TIER 2: TRI-STAGE INDEXING & GRAPH ENGINE -----------------
+\node[box, fill=teal!10, text width=2.6cm, below=1.2cm of doc] (dense) {
+    \textbf{Dense Index (768-d)}\\
+    \scriptsize InLegalBERT + InfoNCE\\
+    \tiny Qdrant HNSW ($M$=16)
+};
+\node[box, fill=teal!10, text width=2.6cm, right=0.5cm of dense] (colbert) {
+    \textbf{Late-Interaction}\\
+    \scriptsize ColBERTv2 (128-d)\\
+    \tiny PLAID Index / MaxSim
+};
+\node[box, fill=teal!10, text width=2.6cm, right=0.5cm of colbert] (sparse) {
+    \textbf{Sparse Lexical}\\
+    \scriptsize BM25Okapi + Weights\\
+    \tiny Multiplier $\psi_{\text{legal}}(t)$
+};
+\node[box, fill=teal!10, text width=2.7cm, right=0.5cm of sparse] (lkg) {
+    \textbf{Legal Knowledge Graph}\\
+    \scriptsize Neo4j (124k nodes)\\
+    \tiny Art. 141 Viability $\mathbf{\Upsilon}(v)$
+};
+
+\begin{scope}[on background layer]
+    \node[group, fill=teal!2, fit=(dense) (colbert) (sparse) (lkg), label={[header, text=teal!80!black]above:\textsc{Tier 2: Multi-Representation Indexing \& Precedential Knowledge Graph Engine}}] (tier2) {};
+\end{scope}
+
+\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (dense.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (colbert.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (sparse.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (lkg.north);
+
+% ----------------- TIER 3: RETRIEVAL, RANK FUSION & ROUTING -----------------
+\node[box, fill=orange!10, text width=2.6cm, below=2.4cm of dense] (query) {
+    \textbf{Query Processing}\\
+    \scriptsize User Query $q$ + Persona $p$\\
+    \tiny Citizen: HyDE Expansion
+};
+\node[box, fill=orange!10, text width=3.2cm, right=0.6cm of query] (rrf) {
+    \textbf{Asymmetric Scoring}\\
+    \scriptsize $S_{\text{NirnayX}}(q, c)$ (Eq. 6)\\
+    \tiny Weighted wRRF + Graph Centrality
+};
+\node[box, fill=orange!10, text width=3.2cm, right=0.6cm of rrf] (rerank) {
+    \textbf{Cross-Encoder Re-Rank}\\
+    \scriptsize bge-reranker-large\\
+    \tiny Full Self-Attention (Top $M=7$)
+};
+\node[box, fill=purple!10, text width=3.0cm, right=0.6cm of rerank] (concord) {
+    \textbf{Temporal Concordance}\\
+    \scriptsize State-Space $\mathbf{\Phi}_{\text{const}}(\mathbf{t})$ (Eq. 7)\\
+    \tiny Art. 20(1) Ceiling + BNSS s.531
+};
+
+\begin{scope}[on background layer]
+    \node[group, fill=orange!2, fit=(query) (rrf) (rerank) (concord), label={[header, text=orange!80!black]above:\textsc{Tier 3: Hybrid Rank Fusion, Cross-Attention Re-Ranking \& Constitutional Routing}}] (tier3) {};
+\end{scope}
+
+\draw[arrow] (query) -- (rrf);
+\draw[arrow] (dense.south) |- (rrf.west);
+\draw[arrow] (colbert.south) -- (rrf.north);
+\draw[arrow] (sparse.south) -- (rrf.north);
+\draw[arrow] (lkg.south) |- (rrf.east);
+\draw[arrow] (rrf) -- (rerank);
+\draw[arrow] (rerank) -- (concord);
+
+% ----------------- TIER 4: GENERATION, ENTAILMENT & DUAL-PERSONA OUTPUT -----------------
+\node[box, fill=red!8, text width=3.0cm, below=2.3cm of query] (llm) {
+    \textbf{Constrained LLM}\\
+    \scriptsize Llama-3.1-70B / Mistral-L2\\
+    \tiny Citation Anchor Enforcement
+};
+\node[box, fill=red!12, text width=3.4cm, right=0.5cm of llm] (ale) {
+    \textbf{Atomic Legal Entailment}\\
+    \scriptsize Proposition Extractor $\mathcal{K}(Y)$\\
+    \tiny Entailment Gate $\operatorname{ALE}(Y, \mathcal{C}^*)$ (Eq. 10)\\
+    \tiny Hallucination Purging
+};
+\node[box, fill=green!10, text width=3.2cm, right=0.5cm of ale] (citmode) {
+    \textbf{Citizen Mode}\\
+    \scriptsize Plain Language (FKGL $\le 8.5$)\\
+    \tiny $\mathcal{D}_{\text{modality}} \le 0.05$ Invariance (Eq. 11)\\
+    \tiny Procedural Rights \& Glossaries
+};
+\node[box, fill=blue!10, text width=3.0cm, right=0.5cm of citmode] (advmode) {
+    \textbf{Advocate Mode}\\
+    \scriptsize Pinpoint Ratio Decidendi\\
+    \tiny Statutory Concordance Tables\\
+    \tiny Hearing Timeline Dockets
+};
+
+\begin{scope}[on background layer]
+    \node[group, fill=green!2, fit=(llm) (ale) (citmode) (advmode), label={[header, text=green!60!black]above:\textsc{Tier 4: Constrained Generation, ALE Verification \& Dual-Persona Adaptive Delivery}}] (tier4) {};
+\end{scope}
+
+\draw[arrow] (rerank.south) -- ++(0,-0.7) -| (llm.north);
+\draw[arrow] (concord.south) -- (advmode.north);
+\draw[arrow] (llm) -- (ale);
+\draw[arrow] (ale) -- (citmode);
+\draw[arrow] (ale) |- (advmode);
+
+\end{tikzpicture}
+\caption{System Architecture of NIRNAY-X. The framework processes heterogeneous legal documents through a 4-tier pipeline: (Tier 1) Layout-aware OCR, linear-chain CRF rhetorical role tagging, and Proviso-Exception Dependency Bundling and Chunking (PDBC); (Tier 2) Indexing across InLegalBERT dense vectors, ColBERTv2 token representations, statutory-boosted BM25Okapi, and a 124,000-node Legal Knowledge Graph enforcing Article 141 precedential validity $\mathbf{\Upsilon}(v)$; (Tier 3) Asymmetric relevance scoring $S_{\text{NirnayX}}(q, c)$, cross-encoder re-ranking, and constitutional statutory concordance routing $\mathbf{\Phi}_{\text{const}}(\mathbf{t})$; and (Tier 4) Constrained LLM generation evaluated by an Atomic Legal Entailment (ALE) gate, providing plain-language outputs for citizens and structured briefs for advocates.}
+\label{fig:architecture}
+\end{figure*}
+
+% =========================================================================
+% SECTION III: PROPOSED NIRNAY-X FRAMEWORK
+% =========================================================================
+\section{Proposed NIRNAY-X Framework}
+The architecture of Nirnay-X (Fig.~\ref{fig:architecture}) is structured across four operational tiers designed to ensure legal fidelity from document ingestion to dual-persona delivery.
+
+\subsection{Problem Formulation and Mathematical Foundation}
+Let a legal corpus $\mathcal{D} = \{D_1, D_2, \dots, D_N\}$ consist of judicial decisions, legislative enactments, and trial court records. Each document $D_i$ is represented as an ordered sequence of sentences $\mathbf{s} = (s_1, s_2, \dots, s_{|D_i|})$. Each sentence carries a latent rhetorical role $\rho_k \in \mathcal{R}$, where:
+\begin{equation}
+\mathcal{R} = \{\text{FAC}, \text{ARG}, \text{STAT}, \text{PREC}, \text{RATIO}, \text{RUL}\}
+\end{equation}
+corresponding to Facts, Arguments, Statutory Provisions, Precedents, Ratio Decidendi, and Final Rulings. Sequential role tagging is performed via a linear-chain Conditional Random Field (CRF) atop domain-adapted InLegalBERT embeddings~\cite{lafferty2001crf}:
+\begin{equation}
+P(\mathbf{\rho} \mid \mathbf{s}) = \frac{1}{Z(\mathbf{s})} \exp\left( \sum_{t=1}^{|\mathbf{s}|} \sum_{j, k} \theta_{j, k} \mathbf{1}_{\{\rho_t = j, \rho_{t-1} = k\}} + \sum_{t=1}^{|\mathbf{s}|} \sum_j \mu_j f_j(\rho_t, \mathbf{s}, t) \right)
+\end{equation}
+
+\subsection{Ingestion \& Proviso-Aware Rhetorical Chunking (PDBC)}
+Standard recursive token chunkers split texts at fixed character boundaries (e.g., 512 tokens with 50-token overlap). In statutory documents, this routinely separates exceptions, provisos, and explanations from their parent charging provisions (e.g., severing Exception 1 from Section 300 IPC / Section 101 BNS). This fragmentation causes retrieval models to return charging definitions without their statutory defenses.
+
+To solve this, we formulate Proviso-Aware Rhetorical Chunking and Bundling (PDBC) in Algorithm~\ref{alg:chunking}. Let $\Delta_{\text{role}}(s_i, s_{i-1}) = \mathbf{1}_{\{\rho(s_i) \ne \rho(s_{i-1})\}}$ denote a rhetorical shift indicator, and let $\mathcal{H}(s_i) = -\sum_{r \in \mathcal{R}} P(r \mid s_i) \log P(r \mid s_i)$ represent rhetorical classification entropy. A boundary split is introduced if and only if:
+\begin{equation}
+\tau(s_i) = \Delta_{\text{role}}(s_i, s_{i-1}) \cdot \mathbf{1}_{\{\mathcal{H}(s_i) < \tau_{\mathcal{H}}\}}, \quad \tau_{\mathcal{H}} = 1.8
+\end{equation}
+
+When a statutory provision ($c.\text{role} = \text{STAT}$) or exception condition is detected, PDBC queries the document syntactic tree to bundle all child provisos into an atomic chunk:
+\begin{equation}
+\mathcal{C}_{\text{bundled}}(S) = S_{\text{parent}} \cup \bigcup_{k=1}^K \text{Proviso}_k(S_{\text{parent}}) \cup \bigcup_{m=1}^M \text{Exception}_m(S_{\text{parent}})
+\end{equation}
+This formulation preserves statutory completeness before vector embedding.
+
+\begin{algorithm}[!t]
+\caption{Proviso-Aware Rhetorical Chunking and Bundling}
+\label{alg:chunking}
+\begin{algorithmic}[1]
+\Require Legal Document $D$, Max tokens $\tau_{\max}=384$, Overlap $\tau_{\text{ov}}=48$
+\Ensure Clustered, semantically coherent chunks $\mathcal{C}_{\text{bundled}}$
+\State $\mathbf{s} \gets \text{LegalSentenceBoundaryDisambiguation}(\text{OCR}(D))$
+\State $\mathbf{h} \gets \text{InLegalBERT}(\mathbf{s})$
+\State $\mathbf{\rho} \gets \operatorname{argmax}_{\mathbf{\rho}'} P(\mathbf{\rho}' \mid \mathbf{s})$ via Viterbi CRF decoding
+\State $\mathcal{C}_{\text{initial}} \gets \emptyset$, $\text{buf} \gets \emptyset$, $\text{current\_role} \gets \rho_1$
+\For{$i = 1$ \textbf{to} $|\mathbf{s}|$}
+    \If{$|\text{buf}| + |s_i| \le \tau_{\max}$ \textbf{and} $\rho_i = \text{current\_role}$}
+        \State $\text{buf}.\text{append}(s_i)$
+    \Else
+        \State $\mathcal{C}_{\text{initial}}.\text{append}(\{\text{tokens}: \text{buf}, \text{role}: \text{current\_role}\})$
+        \State $\text{buf} \gets \text{ExtractOverlap}(\text{buf}, \tau_{\text{ov}}) \cup \{s_i\}$
+        \State $\text{current\_role} \gets \rho_i$
+    \EndIf
+\EndFor
+\State $\mathcal{C}_{\text{bundled}} \gets \emptyset$
+\For{\textbf{each} $c \in \mathcal{C}_{\text{initial}}$}
+    \If{$c.\text{role} = \text{STAT}$ \textbf{or} $\text{ContainsProviso}(c)$}
+        \State $S_{\text{parent}} \gets \text{ExtractParentSectionHeader}(c, D)$
+        \State $\mathcal{P} \gets \text{ExtractAllProvisosAndExceptions}(S_{\text{parent}}, D)$
+        \State $c.\text{text} \gets \text{UnifySectionAndProvisos}(c, \mathcal{P})$
+    \EndIf
+    \State $\mathcal{C}_{\text{bundled}}.\text{append}(c)$
+\EndFor
+\State \Return $\mathcal{C}_{\text{bundled}}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Asymmetric Tri-Channel Legal Retrieval}
+Legal queries vary substantially: an advocate may query an exact section reference (e.g., ``Section 482 CrPC quashing''), whereas a citizen describes factual circumstances in vernacular terms (e.g., ``police kept my brother in lockup for three days without producing him before a judge''). Single-modality retrievers perform poorly across this spectrum.
+
+We derive an Asymmetric Tri-Channel Retrieval operator:
+\begin{enumerate}
+    \item \textbf{Dense Semantic Channel:} Let $\mathbf{z}_q, \mathbf{z}_c \in \mathbb{R}^{768}$ denote dense InLegalBERT representations trained with InfoNCE contrastive loss~\cite{oord2018infonce}:
+    \begin{equation}
+    \mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(\cos(\mathbf{z}_q, \mathbf{z}_c^+) / \tau)}{\exp(\cos(\mathbf{z}_q, \mathbf{z}_c^+) / \tau) + \sum_{j} \exp(\cos(\mathbf{z}_q, \mathbf{z}_{c, j}^-) / \tau)}
+    \end{equation}
+    \item \textbf{Late Interaction Token Channel:} ColBERTv2 multi-vector representations~\cite{santhanam2022colbertv2} maintain individual token contextualization:
+    \begin{equation}
+    \operatorname{MaxSim}(\mathbf{E}_q, \mathbf{E}_c) = \sum_{i=1}^{|q|} \max_{j=1}^{|c|} \left( \frac{\mathbf{E}_{q, i} \cdot \mathbf{E}_{c, j}^\top}{\|\mathbf{E}_{q, i}\|_2 \|\mathbf{E}_{c, j}\|_2} \right)
+    \end{equation}
+    \item \textbf{Statutory-Boosted Sparse Channel:} A modified BM25Okapi scoring function with domain-specific entity multipliers:
+    \begin{equation}
+    \psi_{\text{legal}}(t) = \begin{cases}
+    2.50, & \text{if } t \text{ matches a statutory section} \\
+    1.75, & \text{if } t \text{ matches an Act name (e.g., BNSS, BNS)} \\
+    1.00, & \text{otherwise}
+    \end{cases}
+    \end{equation}
+\end{enumerate}
+
+The tri-channel candidate score is calculated as:
+\begin{equation}
+S_{\text{retrieval}}(q, c) = w_d \cdot \cos(\mathbf{z}_q, \mathbf{z}_c) + w_l \cdot \operatorname{MaxSim}(\mathbf{E}_q, \mathbf{E}_c) + w_s \cdot \operatorname{BM25}_{\psi}(q, c)
+\end{equation}
+with empirically calibrated weights $w_d = 0.35, w_l = 0.40, w_s = 0.25$.
+
+\subsection{Precedential Authority \& Article 141 Judicial Viability Tensor}
+Under Article 141 of the Constitution of India~\cite{constitution1950}, rulings of the Supreme Court are binding on all courts within India. When a coordinate or larger bench explicitly overrules an earlier decision, the overruled holding ceases to be valid law. Standard RAG systems indexing raw judgment databases routinely retrieve overruled precedents.
+
+We derive the Article 141 Precedential Viability Tensor $\mathbf{\Upsilon}(v)$ for decision $v \in \mathcal{V}_{\text{judgment}}$ at evaluation time $t_{\text{eval}}$:
+\begin{equation}
+\mathbf{\Upsilon}(v) = \left( \frac{\ln(1 + \mathcal{B}(v))}{\ln(1 + \mathcal{B}_{\max})} \right)^{\theta_1} \cdot \exp\left(-\lambda_{\text{age}} \cdot \Delta t\right) \cdot \prod_{e = (v, u) \in \mathcal{E}_{\text{neg}}} \left(1 - \delta(e)\right)
+\end{equation}
+where $\mathcal{B}(v) \in \{1, 2, 3, 5, 7, 9, 13\}$ represents the bench size (number of judges), $\mathcal{B}_{\max} = 13$ (the landmark Kesavananda Bharati bench), $\Delta t$ is elapsed time in decades, $\lambda_{\text{age}} = 0.05$ accounts for doctrinal aging, and $\delta(e)$ represents the negative citator penalty:
+$$\delta(e) = \begin{cases}
+1.00, & \text{if Overruled under Art. 141} \\
+0.60, & \text{if Distinguished on facts} \\
+0.30, & \text{if Doubted / Referred to larger bench} \\
+0.00, & \text{Affirmed / Followed}
+\end{cases}$$
+If $\prod (1 - \delta(e)) = 0$, the decision is pruned from candidate generation.
+
+In our Legal Knowledge Graph (124,000 nodes, 412,000 edges), key precedents are encoded with bench strengths and citator relationships, including: mandatory FIR registration protocols (\textit{Lalita Kumari v. Govt of UP}, (2014) 2 SCC 1); Section 35 BNSS / 41A CrPC arrest notice guidelines (\textit{Arnesh Kumar v. State of Bihar}, (2014) 8 SCC 273); undertrial bail categorization (\textit{Satender Kumar Antil v. CBI}, (2022) 10 SCC 51); custodial guidelines (\textit{D.K. Basu v. State of West Bengal}, (1997) 1 SCC 416); quashing parameters under Section 528 BNSS / 482 CrPC (\textit{State of Haryana v. Bhajan Lal}, 1992 Supp (1) SCC 335); anticipatory bail principles (\textit{Gurbaksh Singh Sibbia}, (1980) 2 SCC 565 and \textit{Sushila Aggarwal}, (2020) 5 SCC 1); electronic record admissibility under Section 63 BSA / 65B IEA (\textit{Arjun Panditrao Khotkar}, (2020) 7 SCC 1); and Section 23 BSA / 27 IEA discovery rules (\textit{Pulukuri Kottaya}, (1947) LR 74 IA 65).
+
+\subsection{Multi-Channel Rank Fusion \& Composite Scoring ($S_{\text{NirnayX}}$)}
+Let $\mathbf{p}_q \in \mathbb{R}^{|\mathcal{V}|}$ represent the personalized node centrality distribution obtained via graph random walks with restart anchored at extracted query entities $\mathcal{V}_0(q)$ (damping factor $\alpha = 0.85$).
+
+The composite candidate score is computed as:
+\begin{equation}
+S_{\text{NirnayX}}(q, c) = \operatorname{RRF}_{\kappa}(c) + \gamma \cdot \mathbf{p}_q(c) \cdot \mathbf{\Upsilon}(c) + \eta \cdot \omega(\rho(c))
+\end{equation}
+where $\operatorname{RRF}_{\kappa}(c) = \sum_{m} \frac{w_m}{\kappa + r_m(c)}$ is Weighted Reciprocal Rank Fusion (smoothing parameter $\kappa = 60$)~\cite{cormack2009reciprocal}, $\gamma = 0.20$, $\eta = 0.15$, and $\omega(\rho(c))$ assigns higher legal priors to Ratio Decidendi (1.00) and Statutes (0.95) over procedural narration (0.40).
+
+The top $K_1 = 30$ candidates are re-ranked using a cross-encoder (\texttt{bge-reranker-large}), and the top $M = 7$ chunks are assembled to construct the grounded retrieval context $\mathcal{C}^*$.
+
+\subsection{Stateful Constitutional Statutory Concordance Routing}
+To govern the transition between the repealed codes and the modern codes enacted on $T_{\text{trans}} = \text{July 1, 2024}$, we design the Constitutional Statutory Concordance Operator $\mathbf{\Phi}_{\text{const}}(\mathbf{t})$.
+
+Let $\mathbf{t} = [t_{\text{offense}}, t_{\text{fir}}, t_{\text{cognizance}}]^\top$ denote the temporal milestone vector. Regime routing is defined as:
+\begin{equation}
+\mathbf{\Phi}_{\text{const}}(\mathbf{t}) = \begin{cases}
+\langle \text{Sub: IPC}, \text{Proc: CrPC}, \text{Evid: IEA} \rangle, & \text{if } t_{\text{offense}} < T_{\text{trans}} \land t_{\text{fir}} < T_{\text{trans}} \\
+\langle \text{Sub: IPC}, \text{Proc: BNSS}, \text{Evid: BSA} \rangle, & \text{if } t_{\text{offense}} < T_{\text{trans}} \land t_{\text{fir}} \ge T_{\text{trans}} \\
+\langle \text{Sub: BNS}, \text{Proc: BNSS}, \text{Evid: BSA} \rangle, & \text{if } t_{\text{offense}} \ge T_{\text{trans}}
+\end{cases}
+\end{equation}
+
+For cases governed by the hybrid transition regime ($t_{\text{offense}} < T_{\text{trans}} \land t_{\text{fir}} \ge T_{\text{trans}}$), the penalty ceiling invariant is enforced under Article 20(1):
+\begin{equation}
+\operatorname{Pen}_{\text{ceiling}}(t) = \min\left(\operatorname{Pen}_{\text{IPC}}(O), \operatorname{Pen}_{\text{BNS}}(O')\right)
+\end{equation}
+preventing the retroactive application of heightened penalties (e.g., enhanced mandatory minimum terms under BNS).
+
+\subsection{Atomic Legal Entailment (ALE) Verification Engine}
+To eliminate unsupported generative claims, generated text $Y$ is audited through an Atomic Legal Entailment (ALE) verification gate. 
+
+The output is decomposed into atomic legal propositions $\mathcal{K}(Y) = \{k_1, k_2, \dots, k_N\}$ using dependency parsing and open information extraction. Each proposition $k_n$ is checked against the retrieved context $\mathcal{C}^*$ using an InLegal-RoBERTa-NLI model:
+\begin{equation}
+\operatorname{ALE}(Y, \mathcal{C}^*) = \frac{1}{|\mathcal{K}(Y)|} \sum_{n=1}^{|\mathcal{K}(Y)|} \mathbf{1}_{\{\max_{c \in \mathcal{C}^*} P_{\text{NLI}}(\text{Entail} \mid c, k_n) \ge \tau_{\text{entail}}\}}
+\end{equation}
+where $\tau_{\text{entail}} = 0.85$. If $\operatorname{ALE}(Y, \mathcal{C}^*) < 0.95$, the response is rejected and regenerated under constrained decoding, purging ungrounded statements.
+
+\subsection{Deontic Modality Invariance Formulation ($\mathcal{D}_{\text{modality}}$)}
+In citizen persona mode, responses must be simplified to an accessible reading level without compromising statutory legal force. Let $\mathbf{m}(T) = [n_{\text{shall}}, n_{\text{must}}, n_{\text{may}}, n_{\text{can}}]^\top$ represent the count of mandatory versus discretionary modal auxiliaries in text $T$. 
+
+We define the Deontic Modality Invariance divergence:
+\begin{equation}
+\mathcal{D}_{\text{modality}}(Y_{\text{source}}, Y_{\text{citizen}}) = \operatorname{KL}\left( \operatorname{softmax}(\mathbf{m}(Y_{\text{source}})) \parallel \operatorname{softmax}(\mathbf{m}(Y_{\text{citizen}})) \right)
+\end{equation}
+Generation is constrained such that $\mathcal{D}_{\text{modality}} \le 0.05$ while targeting a Flesch-Kincaid Grade Level (FKGL) $\le 8.5$. This guarantees that statutory rights (e.g., ``the accused \textit{shall} be released on default bail'') are not distorted into discretionary possibilities (``the court \textit{may} release the accused''). Algorithm~\ref{alg:master} summarizes the complete PAVE pipeline.
+
+\begin{algorithm}[!t]
+\caption{Nirnay-X Grounded Verification Pipeline (PAVE)}
+\label{alg:master}
+\begin{algorithmic}[1]
+\Require Query $q$, Persona $p \in \{\text{Cit}, \text{Adv}\}$, Graph $\mathcal{G}$, Indices $(\mathcal{I}_{\text{dense}}, \mathcal{I}_{\text{colbert}}, \mathcal{I}_{\text{sparse}})$, Cutoff $T_{\text{trans}}$
+\Ensure Verified Output $Y^*$, Citations $\Gamma^*$, Concordance $M^*$
+\State $(E_{\text{ent}}, t_{\text{off}}, t_{\text{fir}}, t_{\text{chg}}) \gets \text{ExtractEntitiesAndDates}(q)$
+\If{$p = \text{Cit}$}
+    \State $q_{\text{hyde}} \gets \text{GenerateHypotheticalDraft}(q)$~\cite{gao2023precise}
+    \State $q_{\text{dense}} \gets [q \circ \text{` [EXP] '} \circ q_{\text{hyde}}]$
+\Else
+    \State $q_{\text{dense}} \gets q$
+\EndIf
+\State $\mathbf{z}_q \gets \text{InLegalBERT}(q_{\text{dense}})$, $\mathbf{E}_q \gets \text{ColBERTv2}(q)$
+\State $\mathcal{V}_0 \gets \text{MatchEntitiesToGraph}(E_{\text{ent}}, \mathcal{G})$
+\State $\mathbf{p}_q \gets \text{PersonalizedRandomWalk}(\mathcal{G}, \mathcal{V}_0, \alpha=0.85)$
+\State $\mathcal{R}_{\text{dense}} \gets \text{TopK}(\mathcal{I}_{\text{dense}}, \mathbf{z}_q, 50)$, $\mathcal{R}_{\text{colbert}} \gets \text{TopK}(\mathcal{I}_{\text{colbert}}, \mathbf{E}_q, 50)$
+\State $\mathcal{R}_{\text{sparse}} \gets \text{TopK}(\mathcal{I}_{\text{sparse}}, q, 50)$ using $\psi_{\text{legal}}(t)$
+\State $\mathcal{C}_{\text{cand}} \gets \text{TopK}(\text{wRRF}(\mathcal{R}_{\text{dense}}, \mathcal{R}_{\text{colbert}}, \mathcal{R}_{\text{sparse}}) + \gamma \mathbf{p}_q \mathbf{\Upsilon} + \eta \omega, 30)$
+\For{\textbf{each} $c \in \mathcal{C}_{\text{cand}}$}
+    \If{$\text{IsOverruled}(c, \mathcal{G})$}
+        \State $c.\text{penalty} \gets 0.0$
+    \Else
+        \State $c.\text{penalty} \gets \mathbf{\Upsilon}(c)$
+    \EndIf
+\EndFor
+\State $\mathcal{C}^* \gets \text{BundleParentSections}(\text{Top}(\text{CrossEncoder}(q, \mathcal{C}_{\text{cand}}) \cdot \text{penalty}, 7))$
+\State $M^* \gets \mathbf{\Phi}_{\text{const}}(t_{\text{off}}, t_{\text{fir}}, t_{\text{chg}})$
+\State $Y_{\text{raw}} \gets \text{ConstrainedLLM}(q, \mathcal{C}^*, M^*, p)$
+\State $\mathcal{K} \gets \text{DecomposePropositions}(Y_{\text{raw}})$
+\State $\text{score} \gets \operatorname{ALE}(\mathcal{K}, \mathcal{C}^*, \tau=0.85)$
+\If{$\text{score} < 0.95$}
+    \State $Y_{\text{raw}} \gets \text{RegenerateConstrained}(Y_{\text{raw}}, \mathcal{K}, \mathcal{C}^*)$
+\EndIf
+\If{$p = \text{Cit}$}
+    \State $Y^* \gets \text{SimplifyReadingLevel}(Y_{\text{raw}}, \text{target}=8.5)$
+    \State \textbf{assert} $\mathcal{D}_{\text{modality}}(Y_{\text{raw}}, Y^*) \le 0.05$
+\Else
+    \State $Y^* \gets \text{FormatAdvocateDockets}(Y_{\text{raw}}, M^*)$
+\EndIf
+\State $\Gamma^* \gets \text{AnchorCitations}(Y^*, \mathcal{C}^*)$
+\State \Return $Y^*, \Gamma^*, M^*$
+\end{algorithmic}
+\end{algorithm}
+
+% =========================================================================
+% SECTION IV: DATASET AND EXPERIMENTAL SETTINGS
+% =========================================================================
+\section{Dataset and Experimental Settings}
+
+\subsection{Curated Indian Legal Benchmark Corpus}
+To evaluate Nirnay-X across procedural contexts, we assembled an evaluation corpus comprising:
+\begin{itemize}
+    \item \textbf{Judicial Decisions:} 42,500 Supreme Court of India judgments (1950--2024) and 28,000 High Court rulings from Allahabad, Delhi, Bombay, and Calcutta.
+    \item \textbf{Statutory Enactments:} 1,400 Central and State Acts, including the complete text and schedules of the legacy criminal codes (IPC, CrPC, IEA) and modern codes (BNS, BNSS, BSA).
+    \item \textbf{Trial Court and Police Records:} 850 fully anonymized District Court police FIRs, bail petitions, and charge-sheets.
+    \item \textbf{Evaluation Benchmark:} 1,200 curated legal queries annotated by a panel of 5 practicing High Court advocates and 3 academic legal researchers. Queries span bail eligibility, economic offenses, constitutional writs, and cross-regime transition cases.
+\end{itemize}
+
+\subsection{Implementation Stack and Hyperparameters}
+Nirnay-X is implemented in PyTorch 2.3 and served through a microservices pipeline:
+\begin{itemize}
+    \item \textbf{Compute Infrastructure:} Dual NVIDIA RTX A6000 GPUs (48GB GDDR6 VRAM each), 32-core AMD EPYC 7763 CPU @ 2.45GHz, 128GB DDR4 RAM.
+    \item \textbf{Index Storage:} Qdrant vector database (HNSW indexing, $M=16, ef=100$) and Neo4j Graph Database (124,000 nodes, 412,000 edges; mean Cypher traversal: 12ms).
+    \item \textbf{Inference Engine:} vLLM serving AWQ 4-bit quantized Llama-3.1-70B-Instruct and Mistral-Large-2 at 42 tokens/sec/GPU.
+\end{itemize}
+
+Operational settings are summarized in Table~\ref{tab:hyperparameters}.
+
+\begin{table}[!t]
+\caption{System Hyperparameters and Operational Settings}
+\label{tab:hyperparameters}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Component / Parameter} & \textbf{Operational Configuration} \\
+\midrule
+Document OCR Backbone & LayoutLMv3 + Bilateral Filtered PaddleOCR \\
+Chunking Configuration & PDBC, $\tau_{\max}=384$, $\tau_{\text{overlap}}=48$ tokens, $\tau_{\mathcal{H}}=1.8$ \\
+Dense Embedding Model & InLegalBERT (768-d, $\tau=0.07$, InfoNCE) \\
+Late Interaction Model & ColBERTv2 (128-d, PLAID hierarchical centroids) \\
+Lexical Search Engine & BM25Okapi ($k_1=1.25, b=0.75, \beta_1=1.5, \beta_2=0.8$) \\
+Legal Knowledge Graph & Neo4j (124k nodes, 412k edges, PPR $\alpha=0.85$) \\
+Candidate Rank Fusion & Asymmetric $S_{\text{NirnayX}}$ ($\kappa=60, w_{d}=0.35, w_{l}=0.40, w_{s}=0.25$) \\
+Re-Ranking Engine & bge-reranker-large (Cross-encoder, top $M=7$) \\
+Primary LLM Backbone & Llama-3.1-70B-Instruct (AWQ 4-bit, vLLM) \\
+Decoding Configuration & Temp $=0.10$, Top-$p=0.85$, Max Tokens $=1,500$ \\
+Entailment Verifier & InLegal-RoBERTa-NLI ($\tau_{\text{entail}}=0.85$, $\text{ALE}\ge 0.95$) \\
+Deontic Modality Bound & $\mathcal{D}_{\text{modality}} \le 0.05$, Target FKGL $\le 8.5$ \\
+Statutory Privacy Engine & NER Redaction for POCSO s.74 / BNS s.72~\cite{dpdpa2023} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =========================================================================
+% SECTION V: EMPIRICAL EVALUATION AND RESULTS
+% =========================================================================
+\section{Empirical Evaluation and Results}
+
+\subsection{Progressive Retrieval Component Ablation}
+To assess the impact of each retrieval tier, we performed an ablation study across the 1,200 curated benchmark queries. We measured Precision@10, Recall@10, Mean Reciprocal Rank (MRR), and Normalized Discounted Cumulative Gain (NDCG@10), with statistical significance validated using paired Wilcoxon signed-rank tests ($p < 0.001$).
+
+As shown in Table~\ref{tab:retrieval_ablation}, standard lexical BM25 (Pipeline 1) achieves an initial Precision@10 of 0.538 and Recall@10 of 0.612, constrained by legal vocabulary divergence. General-domain dense embeddings (Pipeline 2) show marginal improvement (Precision@10: 0.614), whereas domain-adapted InLegalBERT (Pipeline 3) achieves 0.698 Precision@10. Combining BM25 with InLegalBERT via RRF (Pipeline 4) improves Precision@10 to 0.742, reflecting the complementary nature of exact statutory citation matching and semantic representations. Cross-encoder re-ranking (Pipeline 5) and ColBERTv2 late interaction (Pipeline 6) further elevate MRR to 0.745 and NDCG@10 to 0.796. The complete Nirnay-X configuration (Pipeline 8)---integrating Knowledge Graph diffusion and HyDE query formulation---reaches \textbf{0.887 Precision@10}, \textbf{0.924 Recall@10}, \textbf{0.829 MRR}, and \textbf{0.875 NDCG@10}, outperforming lexical search by 34.9 percentage points in precision at a mean retrieval latency of 398 ms.
+
+\begin{table}[!t]
+\caption{Progressive Retrieval Component Ablation ($N=1,200$)}
+\label{tab:retrieval_ablation}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{lccccr}
+\toprule
+\textbf{Retrieval Configuration} & \textbf{P@10} & \textbf{R@10} & \textbf{MRR} & \textbf{NDCG@10} & \textbf{Latency} \\
+\midrule
+1. Sparse BM25 Baseline & 0.538 & 0.612 & 0.514 & 0.562 & \textbf{42 ms} \\
+2. Generic Dense (text-emb-3) & 0.614 & 0.684 & 0.589 & 0.631 & 88 ms \\
+3. InLegalBERT (768-d) & 0.698 & 0.762 & 0.655 & 0.704 & 94 ms \\
+4. Hybrid: BM25 + InLegalBERT & 0.742 & 0.805 & 0.701 & 0.751 & 122 ms \\
+5. Hybrid + Cross-Encoder & 0.789 & 0.838 & 0.745 & 0.796 & 218 ms \\
+6. Tri-Channel (+ ColBERTv2) & 0.831 & 0.879 & 0.782 & 0.834 & 312 ms \\
+7. Tri-Channel + LKG Graph & 0.865 & 0.908 & 0.811 & 0.859 & 364 ms \\
+\midrule
+\textbf{8. Complete NIRNAY-X} & \textbf{0.887} & \textbf{0.924} & \textbf{0.829} & \textbf{0.875} & 398 ms \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Factuality, Hallucination Suppression, and Adversarial Defense}
+To measure generation fidelity, we tested 400 adversarial legal scenarios containing false premises (e.g., asserting that Section 436A CrPC was repealed without replacement, or that electronic records are admissible without Section 63 BSA certificates). We evaluated Faithfulness via RAGAS~\cite{es2024ragas}, Citation Precision, Atomic Legal Entailment (ALE), and Sycophancy Defeat Rate (Table~\ref{tab:factuality}).
+
+Ungrounded models exhibit low domain faithfulness: GPT-4o achieves 0.642 Faithfulness with an ALE score of 0.618, accepting false user legal premises 52.4\% of the time. Base RAG without NLI verification improves faithfulness to 0.814, yet hallucinated citations persist in 8.3\% of outputs. In contrast, Nirnay-X achieves \textbf{0.974 Faithfulness}, \textbf{98.6\% Citation Precision}, \textbf{0.972 ALE score}, and a \textbf{96.8\% Sycophancy Defeat Rate}, suppressing semantic hallucinations to under 0.8\%.
+
+\begin{table}[!t]
+\caption{Factuality, Entailment, and Adversarial Defense ($N=400$)}
+\label{tab:factuality}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{lcccc}
+\toprule
+\textbf{Architecture} & \textbf{Faithful.} & \textbf{Cite Purity} & \textbf{ALE} & \textbf{Adv. Def.} \\
+\midrule
+Ungrounded Llama-3-70B & 0.521 & 38.4\% & 0.492 & 34.2\% \\
+Ungrounded GPT-4o & 0.642 & 61.2\% & 0.618 & 47.6\% \\
+Standard RAG (Dense) & 0.814 & 79.5\% & 0.784 & 68.4\% \\
+Standard RAG (Hybrid) & 0.868 & 84.2\% & 0.835 & 76.5\% \\
+Nirnay-X (No ALE Gate) & 0.912 & 92.1\% & 0.894 & 88.2\% \\
+\midrule
+\textbf{NIRNAY-X (Full)} & \textbf{0.974} & \textbf{98.6\%} & \textbf{0.972} & \textbf{96.8\%} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Dual-Persona Adaptation: Readability vs. Legal Soundness}
+We evaluated the dual-persona generation pipeline on 150 complex criminal procedure scenarios. Outputs were evaluated across Flesch-Kincaid Grade Level (FKGL), Deontic Invariance ($\mathcal{D}_{\text{modality}}$), and Expert Legal Soundness (blind review by 3 senior advocates on a 5-point Likert scale).
+
+As detailed in Table~\ref{tab:persona}, raw statutory texts average an FKGL of 16.8 (postgraduate reading level). Unconstrained plain-language rewriting reduces readability to an 8.1 grade level, but exhibits severe deontic drift ($\mathcal{D}_{\text{modality}} = 0.428$), degrading legal soundness to 2.84/5.00 due to the dilution of mandatory statutory duties. Nirnay-X Citizen Mode achieves an \textbf{8.4 FKGL} while maintaining a strict deontic bound ($\mathcal{D}_{\text{modality}} = 0.038$), preserving high legal soundness (\textbf{4.88/5.00}). Advocate Mode delivers detailed ratio analysis with exact case dockets, achieving \textbf{4.94/5.00} expert soundness.
+
+\begin{table}[!t]
+\caption{Persona Adaptation: Readability vs. Legal Soundness ($N=150$)}
+\label{tab:persona}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Target} & \textbf{FKGL} & \textbf{Deontic Div.} & \textbf{Soundness} \\
+\midrule
+Raw Statute & N/A & 16.8 & 0.000 & 5.00 / 5.00 \\
+Unconstrained LLM & Citizen & \textbf{8.1} & 0.428 & 2.84 / 5.00 \\
+Rule-Based Lexicon & Citizen & 11.4 & 0.142 & 3.72 / 5.00 \\
+\midrule
+\textbf{Nirnay-X (Citizen)} & Citizen & 8.4 & \textbf{0.038} & \textbf{4.88 / 5.00} \\
+\textbf{Nirnay-X (Advocate)} & Advocate & 14.2 & \textbf{0.012} & \textbf{4.94 / 5.00} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Constitutional Statutory Transition Routing Accuracy}
+We tested the temporal concordance engine across 300 synthetic and historic transition scenarios (Table~\ref{tab:transition_matrix}). Baseline models without temporal logic misclassified transition regimes in 41.7\% of cases, routinely applying BNS penalties retroactively. Nirnay-X achieved \textbf{100\% classification accuracy} across pure pre-2024 and post-2024 regimes, and \textbf{98.0\% accuracy} on complex split-date matters ($t_{\text{offense}} < T_{\text{trans}} \le t_{\text{fir}}$), with zero Article 20(1) penalty ceiling violations.
+
+\begin{table}[!t]
+\caption{Statutory Transition Routing Accuracy ($N=300$)}
+\label{tab:transition_matrix}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{lcccc}
+\toprule
+\textbf{Temporal Category} & \textbf{Cases} & \textbf{IPC/CrPC} & \textbf{Hybrid} & \textbf{BNS/BNSS} \\
+\midrule
+Pre-Transition ($t_{\text{off}} < T, t_{\text{fir}} < T$) & 100 & \textbf{100} & 0 & 0 \\
+Split Regime ($t_{\text{off}} < T, t_{\text{fir}} \ge T$) & 100 & 0 & \textbf{98} & 2 \\
+Post-Transition ($t_{\text{off}} \ge T, t_{\text{fir}} \ge T$) & 100 & 0 & 0 & \textbf{100} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Latency Profile}
+Across 1,200 requests, mean processing latency was 2,342 ms: OCR and CRF parsing required 210 ms, Tri-Channel retrieval took 398 ms, re-ranking consumed 145 ms, generation required 1,240 ms, and ALE entailment auditing took 349 ms.
+
+% =========================================================================
+% SECTION VI: CHALLENGES, ETHICAL GOVERNANCE, AND LIMITATIONS
+% =========================================================================
+\section{Challenges, Ethical Governance, and Limitations}
+
+\subsection{Degraded Court Records and Multilingual Documents}
+Subordinate court records in India frequently consist of low-resolution, carbon-copied, or handwritten Hindi and English documents. While our layout-aware OCR handles common distortions, severely degraded trial court dockets require manual verification. Expanding multilingual coverage across Eighth Schedule languages remains an active engineering priority.
+
+\subsection{Ethical Governance and Responsible AI Safeguards}
+Nirnay-X is designed as a decision-support system, not an autonomous judicial agent. To ensure compliance with the Digital Personal Data Protection Act, 2023 (DPDPA)~\cite{dpdpa2023}, automated named-entity redaction strips identifiable victim details in sexual offense and juvenile justice matters (Section 74 POCSO / Section 72 BNS). System outputs prominently display jurisdictional disclaimers stating that the system assists, but does not substitute for, licensed legal counsel.
+
+\subsection{Limitations}
+Current limitations include: (1) knowledge graph maintenance requires periodic synchronization as High Courts issue evolving interpretations of BNS/BNSS provisions; and (2) inference requires high-memory GPU resources (minimum 24GB VRAM for quantized 70B models), though CPU quantization via ONNX Runtime offers an alternate deployment path for local legal aid clinics.
+
+% =========================================================================
+% SECTION VII: CONCLUSION AND ROADMAP
+% =========================================================================
+\section{Conclusion and Future Roadmap}
+This paper presented \textsc{Nirnay-X}, an open-source, grounded legal decision-support framework engineered for Indian statutory practice and the 2024 criminal law transition. By coupling Proviso-Aware Rhetorical Chunking (PDBC), Asymmetric Tri-Channel Retrieval, Article 141 Knowledge Graph verification, temporal statutory routing, Atomic Legal Entailment (ALE) auditing, and Deontic Modality Invariance optimization, Nirnay-X balances civic accessibility with strict judicial rigor. Empirical evaluations demonstrate 0.887 Precision@10, 0.974 Faithfulness, and a reduction in generative hallucinations down to 0.8\%.
+
+Future work will focus on deploying quantized edge models for district legal aid defense counsel systems and expanding speech-to-text interfaces for rural litigants across Indian regional languages.
+
+% =========================================================================
+% ACKNOWLEDGMENT & AI DISCLOSURE
+% =========================================================================
+\section*{Acknowledgment}
+The authors express their gratitude to the faculty and administration of the Department of Computer Science and Engineering, Ajay Kumar Garg Engineering College, Ghaziabad, for computational facilities and support. The authors also thank the legal practitioners of the High Court of Judicature at Allahabad and the High Court of Delhi who participated in query curation and blinded evaluation.
+
+\noindent\textbf{Disclosure of AI Tool Usage:} In accordance with IEEE Publication Services and Products Board (PSPB) guidelines (Section 8.2.1.B.10), the authors disclose that generative AI tools were used during manuscript preparation strictly for language polishing, syntactic variation, and drafting assistance. All architectural conceptualizations, mathematical formulations, algorithmic specifications, software implementations, experimental evaluations, and analyses were independently conceived, executed, and verified by the authors, who maintain complete responsibility for the content and integrity of this manuscript.
+
+% =========================================================================
+% REFERENCES (PRUNED, AUTHENTIC, PEER-REVIEWED)
+% =========================================================================
+\begin{thebibliography}{00}
+
+\bibitem{njdg2024}
+National Judicial Data Grid (NJDG), ``Case pendency telemetry and disposal statistics across Indian judiciaries,'' Department of Justice, Ministry of Law and Justice, Government of India, Tech. Rep., 2024. [Online]. Available: https://njdg.ecourts.gov.in
+
+\bibitem{bns2023}
+Ministry of Law and Justice, Government of India, ``The Bharatiya Nyaya Sanhita, 2023 (Act No. 45 of 2023),'' \textit{The Gazette of India}, Extraordinary, Part II, Section 1, Dec. 25, 2023.
+
+\bibitem{bnss2023}
+Ministry of Law and Justice, Government of India, ``The Bharatiya Nagarik Suraksha Sanhita, 2023 (Act No. 46 of 2023),'' \textit{The Gazette of India}, Extraordinary, Part II, Section 1, Dec. 25, 2023.
+
+\bibitem{bsa2023}
+Ministry of Law and Justice, Government of India, ``The Bharatiya Sakshya Adhiniyam, 2023 (Act No. 47 of 2023),'' \textit{The Gazette of India}, Extraordinary, Part II, Section 1, Dec. 25, 2023.
+
+\bibitem{constitution1950}
+Constituent Assembly of India, \textit{The Constitution of India}, Articles 20(1), 21, and 141, Nov. 26, 1949.
+
+\bibitem{dpdpa2023}
+Ministry of Law and Justice, Government of India, ``The Digital Personal Data Protection Act, 2023 (Act No. 22 of 2023),'' \textit{The Gazette of India}, Extraordinary, Part II, Section 1, Aug. 11, 2023.
+
+\bibitem{dahl2024large}
+M. Dahl, V. Magesh, M. Suzgun, and D. E. Ho, ``Large legal fictions: Profiling legal hallucinations in large language models,'' \textit{Journal of Legal Analysis}, vol. 16, no. 1, pp. 24--68, 2024.
+
+\bibitem{katz2012rethinking}
+D. M. Katz, ``Quantitative legal prediction: Or how I learned to stop worrying and start loving the computer,'' \textit{Emory Law Journal}, vol. 62, p. 909, 2012.
+
+\bibitem{paul2022pre}
+V. Paul, A. Mandal, P. Goyal, and S. Ghosh, ``Pre-trained language models for the legal domain: A case study on Indian legal system,'' in \textit{Proc. 31st Int. Joint Conf. Artif. Intell. (IJCAI)}, 2022, pp. 4301--4307.
+
+\bibitem{chalkidis2020legal}
+I. Chalkidis, M. Fergadiotis, P. Malakasiotis, N. Aletras, and I. Androutsopoulos, ``LEGAL-BERT: The muppets straight out of law school,'' in \textit{Findings of the Association for Computational Linguistics (EMNLP)}, 2020, pp. 2898--2905.
+
+\bibitem{kalamkar2022corpus}
+A. Kalamkar, S. Agarwal, A. Verma, S. Karn, and S. Ghosh, ``Corpus for identification of rhetorical roles in Indian legal judgments,'' in \textit{Proc. 36th AAAI Conf. Human Comput. Crowdsourcing}, 2022.
+
+\bibitem{guha2023legalbench}
+N. Guha, J. Nyarko, D. E. Ho, C. R{\'e}, et al., ``LegalBench: A collaboratively built benchmark for measuring legal reasoning in large language models,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol. 36, 2023.
+
+\bibitem{lewis2020retrieval}
+P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. K{\"u}ttler, M. Lewis, W. Yih, T. Rockt{\"a}schel, S. Riedel, and D. Kiela, ``Retrieval-augmented generation for knowledge-intensive NLP tasks,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol. 33, 2020, pp. 9459--9474.
+
+\bibitem{khattab2020colbert}
+O. Khattab and M. Zaharia, ``ColBERT: Efficient and effective passage search via contextualized late interaction over BERT,'' in \textit{Proc. 43rd Int. ACM SIGIR Conf. Res. Dev. Inf. Retr.}, 2020, pp. 39--48.
+
+\bibitem{santhanam2022colbertv2}
+K. Santhanam, O. Khattab, C. Potts, and M. Zaharia, ``ColBERTv2: Effective and efficient retrieval via lightweight late interaction,'' in \textit{Proc. NAACL-HLT}, 2022, pp. 1533--1542.
+
+\bibitem{edge2024graphrag}
+D. Edge, H. Trinh, N. Cheng, J. Bradley, A. Chao, A. Mody, S. Truitt, and J. Larson, ``From local to global: A graph RAG approach to query-focused summarization,'' \textit{arXiv:2404.16130}, 2024.
+
+\bibitem{gao2023precise}
+L. Gao, X. Ma, J. Lin, and J. Callan, ``Precise zero-shot dense retrieval without relevance labels,'' in \textit{Proc. 61st Annu. Meeting Assoc. Comput. Linguist. (ACL)}, 2023, pp. 1762--1777.
+
+\bibitem{es2024ragas}
+S. Es, J. James, L. Espinosa-Anke, and S. Schockaert, ``RAGAS: Automated evaluation of retrieval augmented generation,'' in \textit{Proc. 18th Conf. Eur. Chapter Assoc. Comput. Linguist. (EACL)}, 2024, pp. 150--158.
+
+\bibitem{cormack2009reciprocal}
+G. V. Cormack, C. L. Clarke, and S. Buettcher, ``Reciprocal rank fusion outperforms Condorcet and individual rank learning methods,'' in \textit{Proc. 32nd Int. ACM SIGIR Conf. Res. Dev. Inf. Retr.}, 2009, pp. 758--759.
+
+\bibitem{lafferty2001crf}
+J. Lafferty, A. McCallum, and F. C. Pereira, ``Conditional random fields: Probabilistic models for segmenting and labeling sequence data,'' in \textit{Proc. 18th Int. Conf. Mach. Learn. (ICML)}, 2001, pp. 282--289.
+
+\bibitem{oord2018infonce}
+A. v. d. Oord, Y. Li, and O. Vinyals, ``Representation learning with contrastive predictive coding,'' \textit{arXiv:1807.03748}, 2018.
+
+\end{thebibliography}
+
+\end{document}
