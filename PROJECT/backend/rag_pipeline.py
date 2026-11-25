@@ -5,17 +5,18 @@ End-to-end orchestration of the 11-step RAG workflow:
 
  1. Document Upload
  2. Text Extraction (OCR / PDF parsing)
- 3. Legally-Coherent Chunking
- 4. Dense Embedding Generation
- 5. Vector Database Indexing
+ 3. Legally-Coherent Chunking (with overlap & proviso preservation)
+ 4. Dense Embedding Generation (3-tier resilient fallback)
+ 5. Vector Database Indexing (ChromaDB HNSW)
  6. User Query Reception
  7. Query Embedding
- 8. Semantic Similarity Search (Top-K)
+ 8. Semantic Similarity Search (Top-K with Hybrid Reranking)
  9. Grounding Context Formulation
-10. LLM Inference & Grounded Generation
-11. Citation-Verified Response Delivery
+10. Dual-Persona LLM Inference with Structured Synthesis
+11. Citation-Verified Response Delivery (Modules, Venn, Charts, Tables)
 """
 
+import json
 import logging
 import time
 from typing import Optional
@@ -31,13 +32,12 @@ from backend.retrieval.vector_store import (
     delete_document_chunks,
 )
 from backend.reasoning.generator import generate_response
+from backend.reasoning.evaluator import get_benchmark_metrics, run_evaluation_suite
 
 logger = logging.getLogger("nirnay.pipeline")
 
 
 # ── Document Registry (Persisted) ─────────────────────────
-import json
-
 _DOCS_STORE_PATH = settings.data_path / "documents.json"
 
 
@@ -63,24 +63,31 @@ def _save_registry():
 _document_registry: dict[str, dict] = _load_registry()
 
 
-def ingest_document(file_path: str, filename: str) -> dict:
+def ingest_document(file_path: str, filename: str, doc_type_override: Optional[str] = None) -> dict:
     """
     Execute RAG pipeline steps 1-5: Ingest a legal document.
-
-    Steps:
-      1. Extract text from PDF
-      2. Classify document type and extract entities
-      3. Chunk text into legally-coherent segments
-      4. Generate embeddings for each chunk
-      5. Store in vector database
-
-    Returns: Ingestion report with doc_id, chunks count, metadata
+    Includes automated deduplication by filename to prevent redundant chunks.
     """
     start_time = time.time()
+    registry = _get_registry()
 
-    # Steps 1-2: Document Processing
+    # Deduplication: purge previous version if filename already exists
+    existing_id = None
+    for did, dinfo in list(registry.items()):
+        if dinfo.get("filename") == filename:
+            existing_id = did
+            break
+
+    if existing_id:
+        logger.info(f"Existing document '{filename}' detected (ID: {existing_id}). Purging prior chunks before re-indexing.")
+        delete_document(existing_id)
+
+    # Steps 1-2: Document Processing & Classification
     logger.info(f"[Pipeline Step 1-2] Processing document: {filename}")
     text, metadata = process_document(file_path, filename)
+
+    if doc_type_override:
+        metadata.doc_type = doc_type_override
 
     # Step 3: Chunking
     logger.info(f"[Pipeline Step 3] Chunking document: {metadata.doc_id}")
@@ -126,7 +133,7 @@ def ingest_document(file_path: str, filename: str) -> dict:
 
     logger.info(
         f"[Pipeline Complete] Document ingested: {metadata.doc_id} | "
-        f"{len(chunks)} chunks | {elapsed}s"
+        f"{len(chunks)} chunks | {elapsed}s | Type: {metadata.doc_type}"
     )
 
     return doc_info
@@ -140,21 +147,12 @@ def query_rag(
     chat_history: Optional[list[dict]] = None,
 ) -> dict:
     """
-    Execute RAG pipeline steps 6-11: Answer a legal query.
-
-    Steps:
-      6. Receive natural language query
-      7. Generate query embedding
-      8. Semantic similarity search (Top-K retrieval)
-      9. Formulate grounding context
-     10. LLM inference with grounded generation
-     11. Return answer with source citations
-
-    Returns: Answer dict with response, sources, and metadata
+    Execute RAG pipeline steps 6-11: Answer a legal query with
+    structured output (Modules, Venn diagram, Charts, and Tabular matrices).
     """
     start_time = time.time()
 
-    # Steps 6-8: Retrieval
+    # Steps 6-8: Retrieval & Hybrid Reranking
     logger.info(f"[Pipeline Steps 6-8] Retrieving context for query: {query[:80]}...")
     retrieved_chunks = search(
         query=query,
@@ -163,9 +161,9 @@ def query_rag(
     )
 
     # Step 9: Context Formulation
-    logger.info(f"[Pipeline Step 9] Formulating context from {len(retrieved_chunks)} chunks")
+    logger.info(f"[Pipeline Step 9] Formulating grounding context from {len(retrieved_chunks)} chunks")
 
-    # Step 10: LLM Generation
+    # Step 10: LLM Inference with Structured Generation
     logger.info(f"[Pipeline Step 10] Generating grounded response (persona: {persona})")
     result = generate_response(
         query=query,
@@ -174,15 +172,16 @@ def query_rag(
         chat_history=chat_history,
     )
 
-    # Step 11: Response Assembly
+    # Step 11: Response Assembly with Visual Data Structures
     elapsed = round(time.time() - start_time, 2)
 
     response = {
         "answer": result["answer"],
+        "structured_data": result.get("structured_data", {}),
         "sources": [
             {
                 "chunk_id": chunk["chunk_id"],
-                "text_preview": chunk["text"][:200] + "..." if len(chunk["text"]) > 200 else chunk["text"],
+                "text_preview": chunk["text"][:220] + "..." if len(chunk["text"]) > 220 else chunk["text"],
                 "relevance_score": chunk["score"],
                 "metadata": chunk.get("metadata", {}),
             }
@@ -196,7 +195,6 @@ def query_rag(
     }
 
     logger.info(f"[Pipeline Complete] Query answered in {elapsed}s | Sources: {len(retrieved_chunks)}")
-
     return response
 
 
@@ -230,12 +228,20 @@ def delete_document(doc_id: str) -> bool:
 
 
 def get_system_stats() -> dict:
-    """Get system-wide statistics."""
+    """Get system-wide statistics including real evaluation benchmark telemetry."""
     docs = _get_registry()
     vector_stats = get_collection_stats()
+    eval_metrics = get_benchmark_metrics()
+
     return {
         "total_documents": len(docs),
         "documents_count": len(docs),
         "total_chunks": vector_stats.get("total_chunks", 0),
         "vector_store": vector_stats,
+        "evaluation": eval_metrics.get("metrics", {}),
+        "benchmark_summary": {
+            "queries_evaluated": eval_metrics.get("total_test_queries", 5),
+            "timestamp": eval_metrics.get("timestamp"),
+            "status": eval_metrics.get("status", "ok"),
+        },
     }

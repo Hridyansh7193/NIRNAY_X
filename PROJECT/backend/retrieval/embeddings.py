@@ -107,6 +107,13 @@ def _deterministic_fallback_embed(texts: list[str], dim: int = 384) -> list[list
     return results
 
 
+def _is_valid_key(key: Optional[str]) -> bool:
+    if not key:
+        return False
+    k = key.strip().lower()
+    return not (k.startswith("your-") or "placeholder" in k or k == "" or len(k) < 15)
+
+
 def embed_texts(texts: list[str]) -> list[list[float]]:
     """
     Generate embeddings using the configured provider.
@@ -117,7 +124,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     provider = settings.embedding_provider.lower()
 
-    if provider == "openai" and settings.openai_api_key:
+    if provider == "openai" and _is_valid_key(settings.openai_api_key):
         try:
             logger.info(f"Embedding {len(texts)} texts via OpenAI ({settings.openai_embedding_model})")
             return embed_texts_openai(texts)

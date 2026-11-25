@@ -127,7 +127,7 @@ async def health_check():
 
 @app.get("/api/stats")
 async def system_stats():
-    """Get system-wide statistics."""
+    """Get system-wide statistics including real evaluation telemetry."""
     stats = get_system_stats()
     return {
         "status": "ok",
@@ -139,6 +139,18 @@ async def system_stats():
             "top_k": settings.top_k_retrieval,
         },
     }
+
+
+@app.post("/api/eval/run")
+async def trigger_evaluation_benchmark():
+    """Execute live academic IR and Generation benchmark test suite."""
+    from backend.reasoning.evaluator import run_evaluation_suite
+    try:
+        report = run_evaluation_suite(top_k=5)
+        return {"status": "ok", **report}
+    except Exception as e:
+        logger.error(f"Benchmark evaluation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Benchmark failed: {str(e)}")
 
 
 # ── Document Endpoints ───────────────────────────────────

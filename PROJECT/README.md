@@ -45,16 +45,22 @@
 
 ---
 
-## 3. Platform Modules
+## 3. Platform Modules & Visual Decision Outputs
 
-1. **RAG Legal Assistant (`ChatPanel`):** Multi-turn conversational interface with strict citations and source excerpts.
-2. **Legal Document Processing (`DocumentPanel`):** Automated entity extraction (statutory sections, dates, parties) and OCR support.
-3. **Dual Persona Mode:**
+1. **RAG Legal Assistant (`ChatPanel`):** Multi-turn conversational interface with multi-modal visual decision synthesis:
+   - **4 Analytical Modules:** Executive Brief, Statutory Concordance, Precedent Analysis, Procedural Roadmap.
+   - **Interactive SVG Venn Diagrams:** Visualizing overlaps between old criminal laws (IPC/CrPC) and new Sanhitas (BNS/BNSS), as well as claims vs. defenses.
+   - **Statutory Charts & Timelines:** Statutory penalty horizon bar charts and step-by-step procedural lifecycle tracks.
+   - **Comparative Tabular Matrices:** Clean legal concordance tables with color-coded classification badges.
+   - **View-Mode Selector Tabs:** Toggle between Comprehensive, Modules, Venn Diagram, Charts, Tables, and Sources views.
+2. **Legal Document Processing (`DocumentPanel`):** Act-normalized legal entity extraction (resolving BNS, BNSS, BSA, IPC, CrPC, MVA without "Unknown Act" anomalies) and precise document type classification.
+3. **Stage-2 Cross-Scoring Legal Reranker:** Hybrid reranking combining dense cosine similarity (0.55), BM25 lexical overlap (0.25), statutory section matching (0.15), and rhetorical role alignment (0.05).
+4. **Dual Persona Mode:**
    - **Citizen Mode:** Plain language explanations, practical remedies, simplified summaries.
    - **Advocate Mode:** Technical statutory rigor, IPC/CrPC/BNS mappings, case citations, procedural posture.
-4. **Semantic Provision & Precedent Search (`SearchPanel`):** Concept-driven dense vector retrieval with rhetorical role filtering (Statute, Ruling, Facts, Argument).
-5. **Academic Benchmarking & Telemetry (`StatsPanel`):** Real-time IR evaluation (Precision@K, Recall@K, MRR) and SDG 16 (Peace, Justice & Strong Institutions) impact metrics.
-6. **Corpora Management (`UploadModal`):** Multi-case file indexing, per-document filtering, and vector store management.
+5. **Semantic Provision & Precedent Search (`SearchPanel`):** Concept-driven dense vector retrieval with rhetorical role filtering (Statute, Ruling, Facts, Argument).
+6. **Empirical Academic Benchmarking & Telemetry (`StatsPanel`):** Live IR evaluation suite (`POST /api/eval/run`) computing real-time Precision@5, Recall@K, MRR, NDCG, and SDG 16 impact metrics with an interactive "Run Live Benchmark" test harness.
+7. **Corpora Management (`UploadModal`):** Multi-case file indexing with automated deduplication by filename, per-document filtering, and vector store management.
 
 ---
 

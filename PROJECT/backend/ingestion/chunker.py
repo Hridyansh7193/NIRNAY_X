@@ -9,6 +9,7 @@ Unlike naive sliding-window chunking, this module:
   - Detects paragraph / section boundaries
   - Keeps proviso blocks ("Provided that...") with parent sections
   - Respects sentence boundaries to avoid mid-clause splits
+  - Applies calibrated chunk overlap across chunk transitions
   - Tags each chunk with rhetorical role hints (Facts, Statute, Ruling, etc.)
 """
 
@@ -24,25 +25,32 @@ logger = logging.getLogger("nirnay.ingestion.chunker")
 # ── Rhetorical Role Hints ─────────────────────────────────
 RHETORICAL_PATTERNS = {
     "statute": re.compile(
-        r"(?:section|article|rule|order|clause)\s+\d+",
+        r"(?:section|sec\.|s\.|article|art\.|rule|order|clause|schedule)\s+\d+"
+        r"|(?:bns|bnss|bsa|ipc|crpc|iea)\b",
         re.IGNORECASE,
     ),
     "precedent": re.compile(
-        r"(?:AIR|SCC|SCR|Cr\.?LJ|SCALE)\s+\d{4}|\(\d{4}\)\s+\d+\s+SCC",
+        r"(?:AIR|SCC|SCR|Cr\.?LJ|SCALE)\s+\d{4}|\(\d{4}\)\s+\d+\s+SCC"
+        r"|(?:held that|relying upon|cited in|constitution bench|landmark ruling)",
         re.IGNORECASE,
     ),
     "ruling": re.compile(
-        r"(?:accordingly|dismissed|allowed|disposed|petition is|appeal is|order|directed)",
+        r"(?:accordingly|dismissed|allowed|disposed|petition is|appeal is|ordered that|directed that"
+        r"|held liable|acquitted|convicted|quashed)",
         re.IGNORECASE,
     ),
     "facts": re.compile(
-        r"(?:the\s+(?:petitioner|appellant|respondent|complainant|accused)"
-        r"|facts\s+of\s+the\s+case|brief\s+facts|background)",
+        r"(?:the\s+(?:petitioner|appellant|respondent|complainant|accused|informant)"
+        r"|facts\s+of\s+the\s+case|brief\s+facts|background|allegation|incident occurred)",
         re.IGNORECASE,
     ),
     "argument": re.compile(
-        r"(?:learned\s+(?:counsel|advocate|senior\s+counsel)|submitted\s+that"
-        r"|argued\s+that|contended\s+that|it\s+is\s+(?:submitted|contended|argued))",
+        r"(?:learned\s+(?:counsel|advocate|senior\s+counsel|app)|submitted\s+that"
+        r"|argued\s+that|contended\s+that|it\s+is\s+(?:submitted|contended|argued)|pleaded that)",
+        re.IGNORECASE,
+    ),
+    "procedure": re.compile(
+        r"(?:charge\s*sheet|fir\s*no|summons|warrant|remand|bail|limitation|magistrate|cognizance)",
         re.IGNORECASE,
     ),
 }
@@ -108,17 +116,13 @@ def split_into_paragraphs(text: str) -> list[str]:
     Split text into paragraph-level blocks.
     Preserves proviso blocks with their parent sections.
     """
-    # Split on double newlines (paragraph boundaries)
     raw_paragraphs = re.split(r"\n\s*\n", text)
-
-    # Merge proviso/explanation blocks with preceding paragraphs
     merged = []
     for para in raw_paragraphs:
         para = para.strip()
         if not para:
             continue
         if PROVISO_PATTERN.match(para) and merged:
-            # Proviso belongs with previous paragraph
             merged[-1] = merged[-1] + "\n\n" + para
         else:
             merged.append(para)
@@ -128,10 +132,8 @@ def split_into_paragraphs(text: str) -> list[str]:
 
 def split_into_sentences(text: str) -> list[str]:
     """
-    Split text into sentences, being careful not to break on
-    common legal abbreviations (S., Sec., v., vs., Dr., Mr., etc.)
+    Split text into sentences, protecting common legal abbreviations.
     """
-    # Protect common abbreviations
     protected = text
     abbreviations = [
         r"(?<!\w)S\.", r"(?<!\w)Sec\.", r"(?<!\w)v\.", r"(?<!\w)vs\.",
@@ -140,15 +142,34 @@ def split_into_sentences(text: str) -> list[str]:
         r"(?<!\w)No\.", r"(?<!\w)Sr\.", r"(?<!\w)Jr\.",
         r"(?<!\w)Ltd\.", r"(?<!\w)Pvt\.", r"(?<!\w)Co\.",
         r"(?<!\w)Art\.", r"(?<!\w)Cl\.", r"(?<!\w)para\.",
+        r"(?<!\w)r/w", r"(?<!\w)u/s",
     ]
     for abbr in abbreviations:
         protected = re.sub(abbr, lambda m: m.group().replace(".", "§DOT§"), protected)
 
-    # Split on sentence boundaries
     sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", protected)
-
-    # Restore dots
     return [s.replace("§DOT§", ".").strip() for s in sentences if s.strip()]
+
+
+def _extract_overlap_tail(text: str, max_overlap_chars: int) -> str:
+    """Extract trailing complete sentences to serve as overlap for the subsequent chunk."""
+    if not text or max_overlap_chars <= 0:
+        return ""
+
+    sentences = split_into_sentences(text)
+    overlap_parts = []
+    accumulated_len = 0
+
+    for s in reversed(sentences):
+        if accumulated_len + len(s) + 1 <= max_overlap_chars:
+            overlap_parts.insert(0, s)
+            accumulated_len += len(s) + 1
+        else:
+            if not overlap_parts and len(s) <= max_overlap_chars * 1.5:
+                overlap_parts.append(s)
+            break
+
+    return " ".join(overlap_parts).strip()
 
 
 def chunk_document(
@@ -158,14 +179,8 @@ def chunk_document(
     chunk_overlap: int = None,
 ) -> list[TextChunk]:
     """
-    Main chunking pipeline for legal documents.
-
-    Strategy:
-      1. Split text into paragraphs (preserving proviso boundaries)
-      2. Group paragraphs into chunks ≤ chunk_size chars
-      3. If a single paragraph exceeds chunk_size, split at sentence boundaries
-      4. Apply overlap between consecutive chunks
-      5. Classify rhetorical role for each chunk
+    Main chunking pipeline for legal documents with proviso preservation,
+    sentence boundary protection, and cross-chunk overlap continuity.
     """
     chunk_size = chunk_size or settings.chunk_size * 4  # Convert token estimate → chars
     chunk_overlap = chunk_overlap or settings.chunk_overlap * 4
@@ -178,16 +193,17 @@ def chunk_document(
 
     def flush_chunk(chunk_text: str, start: int, end: int):
         """Create and append a chunk."""
-        if not chunk_text.strip():
+        clean_text = chunk_text.strip()
+        if not clean_text:
             return
         chunk = TextChunk(
             chunk_id=f"{doc_id}_chunk_{len(chunks)}",
             doc_id=doc_id,
-            text=chunk_text.strip(),
+            text=clean_text,
             chunk_index=len(chunks),
             char_start=start,
             char_end=end,
-            rhetorical_role=detect_rhetorical_role(chunk_text),
+            rhetorical_role=detect_rhetorical_role(clean_text),
         )
         chunks.append(chunk)
 
@@ -202,35 +218,47 @@ def chunk_document(
                 current_text = para
                 current_start = char_pos
         else:
-            # Flush current chunk
+            # Current chunk has reached target capacity — flush it
             if current_text:
                 flush_chunk(current_text, current_start, char_pos)
+                overlap_seed = _extract_overlap_tail(current_text, chunk_overlap)
+            else:
+                overlap_seed = ""
 
             if para_len <= chunk_size:
-                # Start new chunk with this paragraph
-                current_text = para
-                current_start = char_pos
+                # Start new chunk with overlap prefix followed by paragraph
+                if overlap_seed and not para.startswith(overlap_seed):
+                    current_text = f"{overlap_seed}\n\n{para}"
+                else:
+                    current_text = para
+                current_start = max(0, char_pos - len(overlap_seed))
             else:
-                # Paragraph too long — split at sentence boundaries
+                # Paragraph itself exceeds chunk_size — split gracefully at sentence boundaries
                 sentences = split_into_sentences(para)
-                sentence_group = ""
-                sentence_start = char_pos
+                sentence_group = overlap_seed
+                sentence_start = max(0, char_pos - len(overlap_seed))
+
                 for sent in sentences:
                     if len(sentence_group) + len(sent) + 1 <= chunk_size:
                         sentence_group = (sentence_group + " " + sent).strip()
                     else:
                         if sentence_group:
                             flush_chunk(sentence_group, sentence_start, char_pos)
-                        sentence_group = sent
-                        sentence_start = char_pos
+                            inner_overlap = _extract_overlap_tail(sentence_group, chunk_overlap)
+                            sentence_group = (inner_overlap + " " + sent).strip()
+                            sentence_start = char_pos
+                        else:
+                            sentence_group = sent
+                            sentence_start = char_pos
+
                 current_text = sentence_group
                 current_start = sentence_start
 
-        char_pos += para_len + 2  # Account for \n\n separator
+        char_pos += para_len + 2
 
-    # Flush remaining
+    # Flush remaining buffer
     if current_text:
         flush_chunk(current_text, current_start, char_pos)
 
-    logger.info(f"Document {doc_id}: {len(paragraphs)} paragraphs → {len(chunks)} chunks")
+    logger.info(f"Document {doc_id}: {len(paragraphs)} paragraphs → {len(chunks)} chunks (with {chunk_overlap} char overlap)")
     return chunks

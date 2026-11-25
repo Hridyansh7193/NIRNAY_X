@@ -16,27 +16,38 @@ import {
   BookOpen,
   Scale,
   ExternalLink,
+  Layers,
+  PieChart,
+  Table as TableIcon,
+  LayoutGrid,
 } from 'lucide-react'
+import {
+  ModulesView,
+  VennDiagramView,
+  ChartsView,
+  TablesView,
+  MarkdownRenderer,
+} from './VisualArtifacts'
 
 const SUGGESTIONS = [
   {
-    title: 'Statutory Provisions',
-    query: 'Identify the applicable IPC, BNS, or CrPC sections mentioned in the case materials and their elements.',
-    persona: 'advocate',
-  },
-  {
-    title: 'Plain Language Explanation',
-    query: 'Explain the core dispute and allegations in simple words without complex legal jargon.',
+    title: 'Wrong-Lane Collision & FIR',
+    query: 'A truck hit my car on the wrong lane. Can I press charges and claim compensation?',
     persona: 'citizen',
   },
   {
-    title: 'Procedural Timeline & Facts',
-    query: 'Extract the chronological facts, filing dates, and procedural posture of this matter.',
+    title: 'Statutory Offence Formulation',
+    query: 'Identify the applicable BNS, BNSS, and Motor Vehicles Act provisions and penal concordance.',
     persona: 'advocate',
   },
   {
-    title: 'Legal Remedies & Relief',
-    query: 'What legal remedies, bail provisions, or defensive steps are available to the aggrieved party?',
+    title: 'Anticipatory Bail & Section 482 BNSS',
+    query: 'What are the procedural requirements and landmark grounds for seeking anticipatory bail under BNSS / CrPC?',
+    persona: 'advocate',
+  },
+  {
+    title: 'Mandatory FIR & Lalita Kumari',
+    query: 'What are my legal remedies if the police refuse to register my FIR for a cognizable offence?',
     persona: 'citizen',
   },
 ]
@@ -47,10 +58,10 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
       id: 'welcome',
       role: 'assistant',
       content:
-        `Welcome to **NirnayX** — AI-Powered Legal Intelligence & Decision-Support System.\n\n` +
-        `I operate via an **11-step RAG pipeline** deterministically grounded in authoritative statutes, FIRs, petitions, and case laws. Every generated insight includes verifiable source citations.\n\n` +
-        `Current Persona: **${persona === 'citizen' ? 'Citizen (Plain Language & Remedies)' : 'Advocate (Statutory Rigor & Precedents)'}**.\n\n` +
-        `Ask any legal question, or click one of the suggested prompts below to begin.`,
+        `## Welcome to **NirnayX** — AI-Powered Legal Intelligence & Decision-Support System\n\n` +
+        `Operating via a deterministic **11-step RAG pipeline** with dense vector retrieval, **Cross-Scoring Legal Reranking**, and **Multi-Modal Visual Decision Synthesis** (Modules, Venn Diagrams, Charts, and Tabular Matrices).\n\n` +
+        `Current Persona: **${persona === 'citizen' ? 'Citizen (Plain Language & Actionable Remedies)' : 'Advocate (Statutory Rigor, BNS/BNSS Concordance & Precedents)'}**.\n\n` +
+        `Ask any legal question below, or select a suggested research inquiry to view the visual decision modules.`,
       sources: [],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
@@ -59,6 +70,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
   const [loading, setLoading] = useState(false)
   const [copiedId, setCopiedId] = useState(null)
   const [expandedSources, setExpandedSources] = useState({})
+  const [activeTabs, setActiveTabs] = useState({}) // { [msgId]: 'comprehensive' | 'modules' | 'venn' | 'charts' | 'tables' | 'sources' }
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -73,6 +85,10 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
   const toggleSource = (msgId, index) => {
     const key = `${msgId}-${index}`
     setExpandedSources((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const setTabForMessage = (msgId, tab) => {
+    setActiveTabs((prev) => ({ ...prev, [msgId]: tab }))
   }
 
   const handleCopy = (id, text) => {
@@ -138,6 +154,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
           id: `bot-${Date.now()}`,
           role: 'assistant',
           content: data.answer || data.response || 'No response generated.',
+          structuredData: data.structured_data || null,
           sources: (data.sources || []).map((s) => ({
             ...s,
             text: s.text || s.text_preview || s.content,
@@ -146,7 +163,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
           retrievalMetrics: {
             retrievedCount: data.retrieval_count ?? data.retrieved_count ?? 0,
             elapsedSeconds: data.latency_sec ?? data.elapsed_seconds ?? 0,
-            provider: data.model_info?.model || data.model_provider || 'Simulated RAG Engine',
+            provider: data.model_info?.model || data.model_provider || 'NirnayX RAG Engine',
           },
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }
@@ -187,7 +204,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
 
   return (
     <div className="chat-panel">
-      {/* Top Banner / Context Info */}
+      {/* Top Banner */}
       <div className="chat-top-banner">
         <div className="banner-left">
           <span className={`persona-badge ${persona}`}>
@@ -197,7 +214,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
           <span className="banner-desc">
             {persona === 'citizen'
               ? 'Plain language explanations, practical remedies, simplified summaries'
-              : 'Statutory citations (IPC/BNS), case precedents, strict evidentiary reasoning'}
+              : 'Statutory citations (BNS/BNSS/IPC), case precedents, strict evidentiary reasoning'}
           </span>
         </div>
         <div className="banner-right">
@@ -215,118 +232,240 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
 
       {/* Messages Scroll Area */}
       <div className="chat-messages-container">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`message-row ${msg.role === 'user' ? 'user-row' : 'bot-row'} ${
-              msg.isError ? 'error-row' : ''
-            }`}
-          >
-            <div className="message-avatar">
-              {msg.role === 'user' ? <User size={18} /> : <Scale size={18} />}
-            </div>
+        {messages.map((msg) => {
+          const currentTab = activeTabs[msg.id] || 'comprehensive'
+          const sData = msg.structuredData
 
-            <div className="message-bubble-wrapper">
-              <div className="message-header-row">
-                <span className="sender-name">
-                  {msg.role === 'user' ? 'You' : 'NirnayX Intelligence'}
-                </span>
-                <span className="message-time">{msg.timestamp}</span>
+          return (
+            <div
+              key={msg.id}
+              className={`message-row ${msg.role === 'user' ? 'user-row' : 'bot-row'} ${
+                msg.isError ? 'error-row' : ''
+              }`}
+            >
+              <div className="message-avatar">
+                {msg.role === 'user' ? <User size={18} /> : <Scale size={18} />}
               </div>
 
-              <div className="message-content">
-                <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
-              </div>
-
-              {/* Citations & Grounding Sources */}
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="citations-container">
-                  <div className="citations-header">
-                    <Bookmark size={14} className="cite-icon" />
-                    <span>Authoritative Grounding Sources ({msg.sources.length} Retrieved Chunks)</span>
-                  </div>
-                  <div className="citations-grid">
-                    {msg.sources.map((src, idx) => {
-                      const sourceKey = `${msg.id}-${idx}`
-                      const isExpanded = !!expandedSources[sourceKey]
-                      return (
-                        <div key={idx} className="citation-card">
-                          <div
-                            className="citation-card-header"
-                            onClick={() => toggleSource(msg.id, idx)}
-                          >
-                            <div className="citation-title-group">
-                              <FileText size={14} className="cite-doc-icon" />
-                              <span className="cite-doc-title">
-                                {src.metadata?.filename || src.doc_id || 'Corpus Source'}
-                              </span>
-                              {src.metadata?.rhetorical_role && (
-                                <span className={`role-badge ${src.metadata.rhetorical_role.toLowerCase()}`}>
-                                  {src.metadata.rhetorical_role}
-                                </span>
-                              )}
-                            </div>
-                            <div className="citation-score-group">
-                              {src.score !== undefined && (
-                                <span className="score-badge">
-                                  {(src.score * 100).toFixed(0)}% match
-                                </span>
-                              )}
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="citation-excerpt">
-                              <p className="excerpt-text">"{src.text || src.content}"</p>
-                              {src.metadata?.page && (
-                                <div className="excerpt-meta">
-                                  <span>Page {src.metadata.page}</span>
-                                  {src.metadata.clause && <span>Clause: {src.metadata.clause}</span>}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+              <div className="message-bubble-wrapper">
+                <div className="message-header-row">
+                  <span className="sender-name">
+                    {msg.role === 'user' ? 'You' : 'NirnayX Intelligence'}
+                  </span>
+                  <span className="message-time">{msg.timestamp}</span>
                 </div>
-              )}
 
-              {/* Retrieval Telemetry Footer */}
-              {msg.retrievalMetrics && (
-                <div className="retrieval-telemetry">
-                  <span>⏱ {msg.retrievalMetrics.elapsedSeconds}s</span>
-                  <span>•</span>
-                  <span>🔍 {msg.retrievalMetrics.retrievedCount} chunks evaluated</span>
-                  <span>•</span>
-                  <span>⚡ {msg.retrievalMetrics.provider}</span>
-                </div>
-              )}
+                {/* Visual View-Mode Tabs for Assistant Messages with Structured Data */}
+                {msg.role === 'assistant' && sData && (
+                  <div className="result-view-tabs-bar">
+                    <button
+                      type="button"
+                      className={`view-tab-btn ${currentTab === 'comprehensive' ? 'active' : ''}`}
+                      onClick={() => setTabForMessage(msg.id, 'comprehensive')}
+                    >
+                      <LayoutGrid size={13} />
+                      <span>Comprehensive</span>
+                    </button>
 
-              {/* Action Toolbar */}
-              <div className="message-toolbar">
-                <button
-                  type="button"
-                  className="msg-tool-btn"
-                  onClick={() => handleCopy(msg.id, msg.content)}
-                  title="Copy response"
-                >
-                  {copiedId === msg.id ? (
-                    <>
-                      <Check size={13} className="success-icon" /> <span>Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={13} /> <span>Copy</span>
-                    </>
+                    {sData.modules && sData.modules.length > 0 && (
+                      <button
+                        type="button"
+                        className={`view-tab-btn ${currentTab === 'modules' ? 'active' : ''}`}
+                        onClick={() => setTabForMessage(msg.id, 'modules')}
+                      >
+                        <Layers size={13} />
+                        <span>Modules ({sData.modules.length})</span>
+                      </button>
+                    )}
+
+                    {sData.venn_diagram && (
+                      <button
+                        type="button"
+                        className={`view-tab-btn ${currentTab === 'venn' ? 'active' : ''}`}
+                        onClick={() => setTabForMessage(msg.id, 'venn')}
+                      >
+                        <PieChart size={13} />
+                        <span>Venn Diagram</span>
+                      </button>
+                    )}
+
+                    {sData.charts && sData.charts.length > 0 && (
+                      <button
+                        type="button"
+                        className={`view-tab-btn ${currentTab === 'charts' ? 'active' : ''}`}
+                        onClick={() => setTabForMessage(msg.id, 'charts')}
+                      >
+                        <Clock size={13} />
+                        <span>Charts & Timeline</span>
+                      </button>
+                    )}
+
+                    {sData.tables && sData.tables.length > 0 && (
+                      <button
+                        type="button"
+                        className={`view-tab-btn ${currentTab === 'tables' ? 'active' : ''}`}
+                        onClick={() => setTabForMessage(msg.id, 'tables')}
+                      >
+                        <TableIcon size={13} />
+                        <span>Statutory Tables</span>
+                      </button>
+                    )}
+
+                    {msg.sources && msg.sources.length > 0 && (
+                      <button
+                        type="button"
+                        className={`view-tab-btn ${currentTab === 'sources' ? 'active' : ''}`}
+                        onClick={() => setTabForMessage(msg.id, 'sources')}
+                      >
+                        <Bookmark size={13} />
+                        <span>Sources ({msg.sources.length})</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Active View Rendering ── */}
+                <div className="message-content">
+                  {/* Default / Plain text for user or simple messages */}
+                  {(!sData || msg.role === 'user') && (
+                    <MarkdownRenderer content={msg.content} />
                   )}
-                </button>
+
+                  {/* Comprehensive View: renders Modules, Venn, Charts, Tables, and Prose */}
+                  {sData && currentTab === 'comprehensive' && (
+                    <div className="comprehensive-display-stack">
+                      <ModulesView modules={sData.modules} />
+                      <VennDiagramView vennData={sData.venn_diagram} />
+                      <ChartsView charts={sData.charts} />
+                      <TablesView tables={sData.tables} />
+                      <div className="mt-4 pt-4 border-t border-[var(--card-border)]">
+                        <MarkdownRenderer content={msg.content} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 1: Modules Only */}
+                  {sData && currentTab === 'modules' && (
+                    <ModulesView modules={sData.modules} />
+                  )}
+
+                  {/* Tab 2: Venn Diagram Only */}
+                  {sData && currentTab === 'venn' && (
+                    <VennDiagramView vennData={sData.venn_diagram} />
+                  )}
+
+                  {/* Tab 3: Charts & Timeline Only */}
+                  {sData && currentTab === 'charts' && (
+                    <ChartsView charts={sData.charts} />
+                  )}
+
+                  {/* Tab 4: Statutory Tables Only */}
+                  {sData && currentTab === 'tables' && (
+                    <TablesView tables={sData.tables} />
+                  )}
+
+                  {/* Tab 5: Sources Focused View */}
+                  {sData && currentTab === 'sources' && (
+                    <div className="focused-sources-view">
+                      <div className="mb-3 text-xs text-[var(--muted-foreground)]">
+                        Indexed statutory authorities & precedents evaluated by the Stage-2 Reranker:
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Grounding Source Citations (Shown in Comprehensive or Sources tab) */}
+                {msg.sources && msg.sources.length > 0 && (currentTab === 'comprehensive' || currentTab === 'sources') && (
+                  <div className="citations-container">
+                    <div className="citations-header">
+                      <Bookmark size={14} className="cite-icon" />
+                      <span>Authoritative Grounding Sources ({msg.sources.length} Retrieved Chunks)</span>
+                    </div>
+                    <div className="citations-grid">
+                      {msg.sources.map((src, idx) => {
+                        const sourceKey = `${msg.id}-${idx}`
+                        const isExpanded = !!expandedSources[sourceKey]
+                        return (
+                          <div key={idx} className="citation-card">
+                            <div
+                              className="citation-card-header"
+                              onClick={() => toggleSource(msg.id, idx)}
+                            >
+                              <div className="citation-title-group">
+                                <FileText size={14} className="cite-doc-icon" />
+                                <span className="cite-doc-title">
+                                  {src.metadata?.filename || src.doc_id || 'Corpus Source'}
+                                </span>
+                                {src.metadata?.rhetorical_role && (
+                                  <span className={`role-badge ${src.metadata.rhetorical_role.toLowerCase()}`}>
+                                    {src.metadata.rhetorical_role}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="citation-score-group">
+                                {src.score !== undefined && (
+                                  <span className="score-badge">
+                                    {(src.score * 100).toFixed(0)}% match
+                                  </span>
+                                )}
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="citation-excerpt">
+                                <p className="excerpt-text">"{src.text || src.content}"</p>
+                                {src.metadata?.doc_type && (
+                                  <div className="excerpt-meta">
+                                    <span>Type: {src.metadata.doc_type}</span>
+                                    {src.metadata?.chunk_index !== undefined && (
+                                      <span>Chunk #{src.metadata.chunk_index}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Retrieval Telemetry Footer */}
+                {msg.retrievalMetrics && (
+                  <div className="retrieval-telemetry">
+                    <span>⏱ {msg.retrievalMetrics.elapsedSeconds}s</span>
+                    <span>•</span>
+                    <span>🔍 {msg.retrievalMetrics.retrievedCount} chunks evaluated & reranked</span>
+                    <span>•</span>
+                    <span>⚡ {msg.retrievalMetrics.provider}</span>
+                  </div>
+                )}
+
+                {/* Action Toolbar */}
+                <div className="message-toolbar">
+                  <button
+                    type="button"
+                    className="msg-tool-btn"
+                    onClick={() => handleCopy(msg.id, msg.content)}
+                    title="Copy response"
+                  >
+                    {copiedId === msg.id ? (
+                      <>
+                        <Check size={13} className="success-icon" /> <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={13} /> <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {loading && (
           <div className="message-row bot-row">
@@ -341,7 +480,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
                   <span></span>
                 </div>
                 <span className="loader-text">
-                  Executing 11-step RAG pipeline: Embedding query → Vector similarity search → Reranking → Grounded synthesis...
+                  Executing 11-step RAG pipeline: Query Vectorization → Dense Search → Legal Reranking → Multi-Modal Synthesis (Modules, Venn, Charts, Tables)...
                 </span>
               </div>
             </div>
@@ -387,8 +526,8 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
             rows="2"
             placeholder={
               persona === 'citizen'
-                ? "Describe your legal situation, notice, or ask for simple explanations..."
-                : "Enter statutory query, legal proposition, IPC/BNS section inquiry, or precedent search..."
+                ? "Describe your legal situation, notice, accident details, or ask for simple remedies..."
+                : "Enter statutory query, legal proposition, IPC/BNS cross-mapping, or precedent search..."
             }
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -407,7 +546,7 @@ export default function ChatPanel({ persona, selectedDocId, onPersonaChange }) {
         </div>
         <div className="composer-footer-note">
           <span>
-            ⚠️ NirnayX provides informational decision support grounded in uploaded corpora. Not a substitute for licensed legal counsel.
+            ⚠️ NirnayX provides informational decision support grounded in authoritative corpora. Not a substitute for licensed legal counsel.
           </span>
         </div>
       </div>

@@ -147,10 +147,11 @@ def search(
     # Get query embedding
     query_embedding = embed_query(query)
 
-    # Search
+    # Search with candidate expansion for reranking
+    candidate_k = min(max(top_k * 2, 12), collection.count())
     results = collection.query(
         query_embeddings=[query_embedding],
-        n_results=min(top_k, collection.count()),
+        n_results=candidate_k,
         where=where_filter,
         include=["documents", "metadatas", "distances"],
     )
@@ -172,8 +173,15 @@ def search(
                 "metadata": results["metadatas"][0][idx] if results["metadatas"] else {},
             })
 
-    logger.info(f"Search query returned {len(formatted)} results (top-{top_k})")
-    return formatted
+    # Apply Stage-2 Cross-Scoring Legal Reranker
+    try:
+        from backend.retrieval.reranker import rerank_chunks
+        reranked = rerank_chunks(query=query, candidate_chunks=formatted, top_k=top_k)
+        logger.info(f"Search query returned {len(reranked)} reranked results (top-{top_k})")
+        return reranked
+    except Exception as e:
+        logger.warning(f"Reranking fallback to raw vector order: {e}")
+        return formatted[:top_k]
 
 
 def get_collection_stats() -> dict:
