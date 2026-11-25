@@ -163,7 +163,7 @@ The combined evidence from prior work suggests four specific gaps that existing 
 \draw[arrow] (crf) -- (bundle);
 
 % ----------------- TIER 2: TRI-STAGE INDEXING & GRAPH ENGINE -----------------
-\node[box, fill=teal!10, text width=2.6cm, below=1.2cm of doc] (dense) {
+\node[box, fill=teal!10, text width=2.6cm, below=1.5cm of doc] (dense) {
     \textbf{Dense Index (768-d)}\\
     \scriptsize InLegalBERT + InfoNCE\\
     \tiny Qdrant HNSW ($M$=16)
@@ -185,16 +185,17 @@ The combined evidence from prior work suggests four specific gaps that existing 
 };
 
 \begin{scope}[on background layer]
-    \node[group, fill=teal!2, fit=(dense) (colbert) (sparse) (lkg), label={[header, text=teal!80!black]above:\textsc{Tier 2: Multi-Representation Indexing \& Precedential Knowledge Graph Engine}}] (tier2) {};
+    \node[group, fill=teal!2, fit=(dense) (colbert) (sparse) (lkg)] (tier2) {};
 \end{scope}
 
-\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (dense.north);
-\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (colbert.north);
-\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (sparse.north);
-\draw[arrow] (bundle.south) -- ++(0,-0.4) -| (lkg.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.42) -| (dense.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.42) -| (colbert.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.42) -| (sparse.north);
+\draw[arrow] (bundle.south) -- ++(0,-0.42) -| (lkg.north);
+\node[header, text=teal!80!black, fill=white, inner sep=1.5pt, anchor=south] at (tier2.north) {\textsc{Tier 2: Multi-Representation Indexing \& Precedential Knowledge Graph Engine}};
 
 % ----------------- TIER 3: RETRIEVAL, RANK FUSION & ROUTING -----------------
-\node[box, fill=orange!10, text width=2.6cm, below=2.4cm of dense] (query) {
+\node[box, fill=orange!10, text width=2.6cm, below=2.0cm of dense] (query) {
     \textbf{Query Processing}\\
     \scriptsize User Query $q$ + Persona $p$\\
     \tiny Citizen: HyDE Expansion
@@ -216,19 +217,21 @@ The combined evidence from prior work suggests four specific gaps that existing 
 };
 
 \begin{scope}[on background layer]
-    \node[group, fill=orange!2, fit=(query) (rrf) (rerank) (concord), label={[header, text=orange!80!black]above:\textsc{Tier 3: Hybrid Rank Fusion, Cross-Attention Re-Ranking \& Constitutional Routing}}] (tier3) {};
+    \node[group, fill=orange!2, fit=(query) (rrf) (rerank) (concord)] (tier3) {};
 \end{scope}
 
+\coordinate (bus23) at ([yshift=-0.42cm]tier2.south);
 \draw[arrow] (query) -- (rrf);
-\draw[arrow] (dense.south) |- (rrf.west);
-\draw[arrow] (colbert.south) -- (rrf.north);
-\draw[arrow] (sparse.south) -- (rrf.north);
-\draw[arrow] (lkg.south) |- (rrf.east);
+\draw[arrow] (dense.south) -- (dense.south |- bus23) -| ([xshift=-0.45cm]rrf.north);
+\draw[arrow] (colbert.south) -- (colbert.south |- bus23) -| ([xshift=-0.15cm]rrf.north);
+\draw[arrow] (sparse.south) -- (sparse.south |- bus23) -| ([xshift=0.15cm]rrf.north);
+\draw[arrow] (lkg.south) -- (lkg.south |- bus23) -| ([xshift=0.45cm]rrf.north);
 \draw[arrow] (rrf) -- (rerank);
 \draw[arrow] (rerank) -- (concord);
+\node[header, text=orange!80!black, fill=white, inner sep=1.5pt, anchor=south] at (tier3.north) {\textsc{Tier 3: Hybrid Rank Fusion, Cross-Attention Re-Ranking \& Constitutional Routing}};
 
 % ----------------- TIER 4: GENERATION, ENTAILMENT & DUAL-PERSONA OUTPUT -----------------
-\node[box, fill=red!8, text width=3.0cm, below=2.3cm of query] (llm) {
+\node[box, fill=red!8, text width=3.0cm, below=2.0cm of query] (llm) {
     \textbf{Constrained LLM}\\
     \scriptsize Llama-3.1-70B / Mistral-L2\\
     \tiny Citation Anchor Enforcement
@@ -253,14 +256,16 @@ The combined evidence from prior work suggests four specific gaps that existing 
 };
 
 \begin{scope}[on background layer]
-    \node[group, fill=green!2, fit=(llm) (ale) (citmode) (advmode), label={[header, text=green!60!black]above:\textsc{Tier 4: Constrained Generation, ALE Verification \& Dual-Persona Adaptive Delivery}}] (tier4) {};
+    \node[group, fill=green!2, fit=(llm) (ale) (citmode) (advmode)] (tier4) {};
 \end{scope}
 
-\draw[arrow] (rerank.south) -- ++(0,-0.7) -| (llm.north);
-\draw[arrow] (concord.south) -- (advmode.north);
+\coordinate (bus34) at ([yshift=-0.42cm]tier3.south);
+\draw[arrow] (rerank.south) -- (rerank.south |- bus34) -| (llm.north);
+\draw[arrow] (concord.south) -- (concord.south |- bus34) -| (advmode.north);
 \draw[arrow] (llm) -- (ale);
 \draw[arrow] (ale) -- (citmode);
-\draw[arrow] (ale) |- (advmode);
+\draw[arrow] (ale.south) -- ++(0,-0.45) -| (advmode.south);
+\node[header, text=green!60!black, fill=white, inner sep=1.5pt, anchor=south] at (tier4.north) {\textsc{Tier 4: Constrained Generation, ALE Verification \& Dual-Persona Adaptive Delivery}};
 
 \end{tikzpicture}
 \caption{System Architecture of NIRNAY-X. The framework processes heterogeneous legal documents through a 4-tier pipeline: (Tier 1) Layout-aware OCR, linear-chain CRF rhetorical role tagging, and Proviso-Exception Dependency Bundling and Chunking (PDBC); (Tier 2) Indexing across InLegalBERT dense vectors, ColBERTv2 token representations, statutory-boosted BM25Okapi, and a 124,000-node Legal Knowledge Graph enforcing Article 141 precedential validity $\mathbf{\Upsilon}(v)$; (Tier 3) Asymmetric relevance scoring $S_{\text{NirnayX}}(q, c)$, cross-encoder re-ranking, and constitutional statutory concordance routing $\mathbf{\Phi}_{\text{const}}(\mathbf{t})$; and (Tier 4) Constrained LLM generation evaluated by an Atomic Legal Entailment (ALE) gate, providing plain-language outputs for citizens and structured briefs for advocates.}
@@ -280,7 +285,10 @@ Let a legal corpus $\mathcal{D} = \{D_1, D_2, \dots, D_N\}$ consist of judicial 
 \end{equation}
 corresponding to Facts, Arguments, Statutory Provisions, Precedents, Ratio Decidendi, and Final Rulings. Sequential role tagging proceeds via a linear-chain Conditional Random Field (CRF) atop domain-adapted InLegalBERT embeddings~\cite{lafferty2001crf}:
 \begin{equation}
-P(\mathbf{\rho} \mid \mathbf{s}) = \frac{1}{Z(\mathbf{s})} \exp\left( \sum_{t=1}^{|\mathbf{s}|} \sum_{j, k} \theta_{j, k} \mathbf{1}_{\{\rho_t = j, \rho_{t-1} = k\}} + \sum_{t=1}^{|\mathbf{s}|} \sum_j \mu_j f_j(\rho_t, \mathbf{s}, t) \right)
+\begin{aligned}
+P(\mathbf{\rho} \mid \mathbf{s}) = \frac{1}{Z(\mathbf{s})} \exp\Biggl( &\sum_{t=1}^{|\mathbf{s}|} \sum_{j, k} \theta_{j, k} \mathbf{1}_{\{\rho_t = j, \rho_{t-1} = k\}} \\
+&+ \sum_{t=1}^{|\mathbf{s}|} \sum_j \mu_j f_j(\rho_t, \mathbf{s}, t) \Biggr)
+\end{aligned}
 \end{equation}
 
 \subsection{Ingestion \& Proviso-Aware Rhetorical Chunking (PDBC)}
@@ -293,7 +301,10 @@ To resolve this, our derivation of Proviso-Aware Rhetorical Chunking and Bundlin
 
 When a statutory provision ($c.\text{role} = \text{STAT}$) or exception condition is detected, PDBC queries the document syntactic tree to bundle all child provisos into a single atomic chunk:
 \begin{equation}
-\mathcal{C}_{\text{bundled}}(S) = S_{\text{parent}} \cup \bigcup_{k=1}^K \text{Proviso}_k(S_{\text{parent}}) \cup \bigcup_{m=1}^M \text{Exception}_m(S_{\text{parent}})
+\begin{aligned}
+\mathcal{C}_{\text{bundled}}(S) = S_{\text{parent}} &\cup \bigcup_{k=1}^K \text{Proviso}_k(S_{\text{parent}}) \\
+&\cup \bigcup_{m=1}^M \text{Exception}_m(S_{\text{parent}})
+\end{aligned}
 \end{equation}
 This formulation guarantees that no statutory defense clause is separated from its parent charging provision before vector embedding. Algorithm~\ref{alg:chunking} details the full procedure.
 
@@ -336,7 +347,7 @@ Our derivation of Asymmetric Tri-Channel Retrieval proceeds from first principle
 \begin{enumerate}
     \item \textbf{Dense Semantic Channel:} Let $\mathbf{z}_q, \mathbf{z}_c \in \mathbb{R}^{768}$ denote InLegalBERT dense representations. We fine-tune with InfoNCE contrastive loss~\cite{oord2018infonce}:
     \begin{equation}
-    \mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(\cos(\mathbf{z}_q, \mathbf{z}_c^+) / \tau)}{\exp(\cos(\mathbf{z}_q, \mathbf{z}_c^+) / \tau) + \sum_{j} \exp(\cos(\mathbf{z}_q, \mathbf{z}_{c, j}^-) / \tau)}
+    \mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(\cos(\mathbf{z}_q, \mathbf{z}_c^+) / \tau)}{\substack{\exp(\cos(\mathbf{z}_q, \mathbf{z}_c^+) / \tau) \\ + \sum_{j} \exp(\cos(\mathbf{z}_q, \mathbf{z}_{c, j}^-) / \tau)}}
     \end{equation}
     \item \textbf{Late Interaction Token Channel:} Building on ColBERTv2's multi-vector representations~\cite{santhanam2022colbertv2}, individual token contextualization is maintained through MaxSim operations:
     \begin{equation}
@@ -346,7 +357,7 @@ Our derivation of Asymmetric Tri-Channel Retrieval proceeds from first principle
     \begin{equation}
     \psi_{\text{legal}}(t) = \begin{cases}
     2.50, & \text{if } t \text{ matches a statutory section} \\
-    1.75, & \text{if } t \text{ matches an Act name (e.g., BNSS, BNS)} \\
+    1.75, & \text{if } t \text{ matches an Act (BNS, BNSS)} \\
     1.00, & \text{otherwise}
     \end{cases}
     \end{equation}
@@ -354,7 +365,10 @@ Our derivation of Asymmetric Tri-Channel Retrieval proceeds from first principle
 
 The tri-channel candidate score combines these components as:
 \begin{equation}
-S_{\text{retrieval}}(q, c) = w_d \cdot \cos(\mathbf{z}_q, \mathbf{z}_c) + w_l \cdot \operatorname{MaxSim}(\mathbf{E}_q, \mathbf{E}_c) + w_s \cdot \operatorname{BM25}_{\psi}(q, c)
+\begin{aligned}
+S_{\text{retrieval}}(q, c) &= w_d \cdot \cos(\mathbf{z}_q, \mathbf{z}_c) + w_l \cdot \operatorname{MaxSim}(\mathbf{E}_q, \mathbf{E}_c) \\
+&\quad + w_s \cdot \operatorname{BM25}_{\psi}(q, c)
+\end{aligned}
 \end{equation}
 with empirically calibrated weights $w_d = 0.35, w_l = 0.40, w_s = 0.25$. We initially explored equal weighting across channels; the asymmetric configuration emerged from ablation on our development set, reflecting the disproportionate diagnostic value of token-level specificity for section-number queries.
 
@@ -363,7 +377,10 @@ Article 141 of the Constitution of India~\cite{constitution1950} renders Supreme
 
 Building on this observation, our Article 141 Precedential Viability Tensor $\mathbf{\Upsilon}(v)$ for decision $v \in \mathcal{V}_{\text{judgment}}$ combines bench strength, chronological decay, and negative citator effects:
 \begin{equation}
-\mathbf{\Upsilon}(v) = \left( \frac{\ln(1 + \mathcal{B}(v))}{\ln(1 + \mathcal{B}_{\max})} \right)^{\theta_1} \cdot \exp\left(-\lambda_{\text{age}} \cdot \Delta t\right) \cdot \prod_{e = (v, u) \in \mathcal{E}_{\text{neg}}} \left(1 - \delta(e)\right)
+\begin{aligned}
+\mathbf{\Upsilon}(v) = \left( \frac{\ln(1 + \mathcal{B}(v))}{\ln(1 + \mathcal{B}_{\max})} \right)^{\theta_1} &\cdot \exp\left(-\lambda_{\text{age}} \cdot \Delta t\right) \\
+&\cdot \prod_{e = (v, u) \in \mathcal{E}_{\text{neg}}} \left(1 - \delta(e)\right)
+\end{aligned}
 \end{equation}
 where $\mathcal{B}(v) \in \{1, 2, 3, 5, 7, 9, 13\}$ represents bench size, $\mathcal{B}_{\max} = 13$ (the Kesavananda Bharati Constitutional Bench), $\Delta t$ is elapsed time in decades, $\lambda_{\text{age}} = 0.05$ accounts for doctrinal aging, and $\delta(e)$ captures the negative citator penalty:
 $$\delta(e) = \begin{cases}
@@ -390,11 +407,14 @@ The transition between the repealed codes and the modern codes enacted on $T_{\t
 
 Let $\mathbf{t} = [t_{\text{offense}}, t_{\text{fir}}, t_{\text{cognizance}}]^\top$. Regime routing is then:
 \begin{equation}
-\mathbf{\Phi}_{\text{const}}(\mathbf{t}) = \begin{cases}
-\langle \text{Sub: IPC}, \text{Proc: CrPC}, \text{Evid: IEA} \rangle, & \text{if } t_{\text{offense}} < T_{\text{trans}} \land t_{\text{fir}} < T_{\text{trans}} \\
-\langle \text{Sub: IPC}, \text{Proc: BNSS}, \text{Evid: BSA} \rangle, & \text{if } t_{\text{offense}} < T_{\text{trans}} \land t_{\text{fir}} \ge T_{\text{trans}} \\
-\langle \text{Sub: BNS}, \text{Proc: BNSS}, \text{Evid: BSA} \rangle, & \text{if } t_{\text{offense}} \ge T_{\text{trans}}
+\begin{aligned}
+&\mathbf{\Phi}_{\text{const}}(\mathbf{t}) = \\
+&\begin{cases}
+\langle \text{Sub: IPC, Proc: CrPC, Evid: IEA} \rangle, & \text{if } \substack{t_{\text{offense}} < T_{\text{trans}}, \\ t_{\text{fir}} < T_{\text{trans}}} \\[8pt]
+\langle \text{Sub: IPC, Proc: BNSS, Evid: BSA} \rangle, & \text{if } \substack{t_{\text{offense}} < T_{\text{trans}}, \\ t_{\text{fir}} \ge T_{\text{trans}}} \\[6pt]
+\langle \text{Sub: BNS, Proc: BNSS, Evid: BSA} \rangle, & \text{if } t_{\text{offense}} \ge T_{\text{trans}}
 \end{cases}
+\end{aligned}
 \end{equation}
 
 For the transitional regime (offense before $T_{\text{trans}}$, FIR on or after $T_{\text{trans}}$), the Article 20(1) penalty ceiling invariant is enforced:
@@ -408,7 +428,10 @@ The hallucination problem in legal generation manifests differently from general
 
 Our solution decomposes generated text $Y$ into atomic legal propositions $\mathcal{K}(Y) = \{k_1, k_2, \dots, k_N\}$ via dependency parsing and open information extraction. Each proposition $k_n$ is verified against the retrieved context $\mathcal{C}^*$ using an InLegal-RoBERTa-NLI model:
 \begin{equation}
-\operatorname{ALE}(Y, \mathcal{C}^*) = \frac{1}{|\mathcal{K}(Y)|} \sum_{n=1}^{|\mathcal{K}(Y)|} \mathbf{1}_{\{\max_{c \in \mathcal{C}^*} P_{\text{NLI}}(\text{Entail} \mid c, k_n) \ge \tau_{\text{entail}}\}}
+\begin{aligned}
+\operatorname{ALE}(Y, \mathcal{C}^*) = \frac{1}{|\mathcal{K}(Y)|} \sum_{n=1}^{|\mathcal{K}(Y)|} \mathbf{1}\Bigl\{ &\max_{c \in \mathcal{C}^*} P_{\text{NLI}}(\text{Entail} \mid c, k_n) \\
+&\ge \tau_{\text{entail}} \Bigr\}
+\end{aligned}
 \end{equation}
 where $\tau_{\text{entail}} = 0.85$. Responses with $\operatorname{ALE}(Y, \mathcal{C}^*) < 0.95$ are rejected and regenerated under constrained decoding, with ungrounded propositions purged from the response before the second generation pass.
 
@@ -417,7 +440,10 @@ The readability-fidelity tension in citizen-facing legal simplification is genui
 
 Let $\mathbf{m}(T) = [n_{\text{shall}}, n_{\text{must}}, n_{\text{may}}, n_{\text{can}}]^\top$ represent the count of mandatory versus discretionary modal auxiliaries in text $T$. Our Deontic Modality Invariance divergence is:
 \begin{equation}
-\mathcal{D}_{\text{modality}}(Y_{\text{source}}, Y_{\text{citizen}}) = \operatorname{KL}\left( \operatorname{softmax}(\mathbf{m}(Y_{\text{source}})) \parallel \operatorname{softmax}(\mathbf{m}(Y_{\text{citizen}})) \right)
+\begin{aligned}
+\mathcal{D}_{\text{modality}}(Y_{\text{source}}, Y_{\text{citizen}}) = \operatorname{KL}\Bigl( &\operatorname{softmax}(\mathbf{m}(Y_{\text{source}})) \\
+&\parallel \operatorname{softmax}(\mathbf{m}(Y_{\text{citizen}})) \Bigr)
+\end{aligned}
 \end{equation}
 Generation is constrained such that $\mathcal{D}_{\text{modality}} \le 0.05$ while targeting FKGL $\le 8.5$. This guarantees that statutory rights---``the accused \textit{shall} be released on default bail''---are not distorted into discretionary relief---``the court \textit{may} release the accused.'' Algorithm~\ref{alg:master} summarizes the complete PAVE pipeline.
 
@@ -496,8 +522,9 @@ Operational settings are summarized in Table~\ref{tab:hyperparameters}.
 \caption{System Hyperparameters and Operational Settings}
 \label{tab:hyperparameters}
 \centering
-\small
-\begin{tabularx}{\columnwidth}{lX}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\columnwidth}{l>{\raggedright\arraybackslash}X}
 \toprule
 \textbf{Component / Parameter} & \textbf{Operational Configuration} \\
 \midrule
@@ -532,8 +559,9 @@ The results in Table~\ref{tab:retrieval_ablation}, while encouraging, should be 
 \caption{Progressive Retrieval Component Ablation ($N=1,200$)}
 \label{tab:retrieval_ablation}
 \centering
-\small
-\begin{tabularx}{\columnwidth}{lccccr}
+\footnotesize
+\setlength{\tabcolsep}{2pt}
+\begin{tabularx}{\columnwidth}{>{\raggedright\arraybackslash}Xccccr}
 \toprule
 \textbf{Retrieval Configuration} & \textbf{P@10} & \textbf{R@10} & \textbf{MRR} & \textbf{NDCG@10} & \textbf{Latency} \\
 \midrule
@@ -559,8 +587,9 @@ Ungrounded models reveal the depth of the problem: GPT-4o achieves 0.642 Faithfu
 \caption{Factuality, Entailment, and Adversarial Defense ($N=400$)}
 \label{tab:factuality}
 \centering
-\small
-\begin{tabularx}{\columnwidth}{lcccc}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabularx}{\columnwidth}{>{\raggedright\arraybackslash}Xcccc}
 \toprule
 \textbf{Architecture} & \textbf{Faithful.} & \textbf{Cite Purity} & \textbf{ALE} & \textbf{Adv. Def.} \\
 \midrule
@@ -584,8 +613,9 @@ The findings in Table~\ref{tab:persona} reveal a tension that existing tools han
 \caption{Persona Adaptation: Readability vs. Legal Soundness ($N=150$)}
 \label{tab:persona}
 \centering
-\small
-\begin{tabularx}{\columnwidth}{lcccc}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabularx}{\columnwidth}{>{\raggedright\arraybackslash}Xcccc}
 \toprule
 \textbf{Configuration} & \textbf{Target} & \textbf{FKGL} & \textbf{Deontic Div.} & \textbf{Soundness} \\
 \midrule
@@ -606,8 +636,9 @@ We tested the temporal concordance engine across 300 synthetic and historic tran
 \caption{Statutory Transition Routing Accuracy ($N=300$)}
 \label{tab:transition_matrix}
 \centering
-\small
-\begin{tabularx}{\columnwidth}{lcccc}
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabularx}{\columnwidth}{>{\raggedright\arraybackslash}Xcccc}
 \toprule
 \textbf{Temporal Category} & \textbf{Cases} & \textbf{IPC/CrPC} & \textbf{Hybrid} & \textbf{BNS/BNSS} \\
 \midrule
